@@ -1,57 +1,128 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { 
+  View, Text, TextInput, TouchableOpacity, StyleSheet, 
+  KeyboardAvoidingView, Platform 
+} from 'react-native';
 import { router } from 'expo-router';
-import { useAuthStore } from '@/src/store/authStore';
 import { Colors } from '@/src/theme/colors';
 
 export default function LoginScreen() {
-  const { setAuth } = useAuthStore();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  // ── Botones temporales para probar navegación ──
-  const simularDocente = async () => {
-    await setAuth(
-      { id: 1, email: 'docente@test.com',
-        full_name: 'Docente Test', role: 'docente' },
-      'fake-token-docente'
-    );
-    router.replace('/teacher' as any);
-  };
-
-  const simularEstudiante = async () => {
-    await setAuth(
-      { id: 2, email: 'estudiante@test.com',
-        full_name: 'Estudiante Test', role: 'estudiante' },
-      'fake-token-estudiante'
-    );
-    router.replace('/student' as any);
+  const handleLogin = () => {
+    // TRUCO DE NAVEGACIÓN TEMPORAL
+    if (email.toLowerCase().includes('docente')) {
+      router.replace('/(teacher)');
+    } else {
+      router.replace('/(student)');
+    }
   };
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center',
-      alignItems: 'center', backgroundColor: Colors.background, gap: 16 }}>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.formContainer}>
+        {/* Encabezado */}
+        <Text style={styles.title}>S Í N T E S I S</Text>
+        <Text style={styles.subtitle}>Sistema Integral Tecnológico</Text>
 
-      <Text style={{ color: Colors.primary, fontSize: 28,
-        fontWeight: '700', marginBottom: 24 }}>SÍNTESIS</Text>
+        {/* Inputs */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Correo Institucional</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="estudiante@universidad.edu.co"
+            placeholderTextColor={Colors.gray}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
 
-      <TouchableOpacity
-        onPress={simularDocente}
-        style={{ backgroundColor: Colors.primary, paddingHorizontal: 32,
-          paddingVertical: 14, borderRadius: 12, width: 220 }}>
-        <Text style={{ color: '#fff', textAlign: 'center',
-          fontWeight: '600', fontSize: 15 }}>
-          Entrar como Docente
-        </Text>
-      </TouchableOpacity>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Contraseña</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="••••••••"
+            placeholderTextColor={Colors.gray}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+        </View>
 
-      <TouchableOpacity
-        onPress={simularEstudiante}
-        style={{ backgroundColor: Colors.secondary, paddingHorizontal: 32,
-          paddingVertical: 14, borderRadius: 12, width: 220 }}>
-        <Text style={{ color: '#fff', textAlign: 'center',
-          fontWeight: '600', fontSize: 15 }}>
-          Entrar como Estudiante
-        </Text>
-      </TouchableOpacity>
-
-    </View>
+        {/* Botón Principal */}
+        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+          <Text style={styles.buttonText}>Ingresar al Sistema</Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  formContainer: {
+    backgroundColor: Colors.surface,
+    padding: 32,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: Colors.primary,
+    textAlign: 'center',
+    letterSpacing: 2,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: Colors.gray,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.dark,
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: Colors.light,
+    borderWidth: 1,
+    borderColor: Colors.window,
+    borderRadius: 8,
+    padding: 16,
+    fontSize: 16,
+    color: Colors.dark,
+  },
+  button: {
+    backgroundColor: Colors.primary,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  buttonText: {
+    color: Colors.surface, // Usamos la variable de blanco puro para el texto sobre el botón primary
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+});
