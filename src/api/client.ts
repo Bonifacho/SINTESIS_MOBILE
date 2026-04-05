@@ -1,35 +1,30 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { router } from 'expo-router';
 
-export const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000';
+// URL de tu backend (Ajustar según donde esté corriendo tu Python/FastAPI)
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api';
 
-const api = axios.create({
+export const apiClient = axios.create({
   baseURL: API_URL,
-  timeout: 15_000,
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// Inyectar JWT en cada request
-api.interceptors.request.use(async (config) => {
-  const token = await SecureStore.getItemAsync('jwt');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-
-// Manejo global de errores
-api.interceptors.response.use(
-  (res) => res,
-  async (error) => {
-    const status = error.response?.status;
-    if (status === 401 || status === 403) {
-      await SecureStore.deleteItemAsync('jwt');
-      await SecureStore.deleteItemAsync('user');
-      router.replace('/login' as any);
+// Interceptor: Antes de que salga cualquier petición, le pegamos el JWT
+apiClient.interceptors.request.use(
+  async (config) => {
+    try {
+      const token = await SecureStore.getItemAsync('sintesis_jwt');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error('Error obteniendo el token de seguridad', error);
     }
+    return config;
+  },
+  (error) => {
     return Promise.reject(error);
   }
 );
-
-export default api;
