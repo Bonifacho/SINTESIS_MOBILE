@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 
-export type Role = 'docente' | 'estudiante';
+// 🚨 AQUÍ ESTÁ EL CAMBIO CRÍTICO: Agregamos al practicante
+export type Role = 'docente' | 'estudiante' | 'practicante';
 
 export interface User {
   id: number;
