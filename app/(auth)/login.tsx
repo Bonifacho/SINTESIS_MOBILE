@@ -1,49 +1,78 @@
 import React, { useState } from 'react';
-import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  KeyboardAvoidingView, Platform 
-} from 'react-native';
-import { router } from 'expo-router';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuthStore, Role } from '@/src/store/authStore';
 import { Colors } from '@/src/theme/colors';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function LoginScreen() {
+  const router = useRouter();
+  const setAuth = useAuthStore((state) => state.setAuth);
+  
+  // 1. EL ESTADO: Guardamos lo que el usuario escribe
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
-    // TRUCO DE NAVEGACIÓN TEMPORAL
-    if (email.toLowerCase().includes('docente')) {
-      router.replace('/(teacher)');
-    } else {
-      router.replace('/(student)');
+  // 2. LA LÓGICA: El "cerebro" que ya habíamos diseñado
+  const handleLogin = async () => {
+    if (!email || !password) return; // Validación básica
+
+    const emailLower = email.toLowerCase();
+    let role: Role = 'estudiante'; // Por defecto
+    let route: any = '/(student)';
+
+    // Asignación de roles según tu Base de Datos y MVP
+    if (emailLower.includes('docente')) {
+      role = 'docente';
+      route = '/(teacher)';
+    } else if (emailLower.includes('practicante')) {
+      role = 'practicante';
+      route = '/(trainee)';
     }
+
+    // Simulamos que el backend nos respondió exitosamente
+    const mockUser = {
+      id: 1,
+      email: emailLower,
+      full_name: 'Usuario MVP SÍNTESIS',
+      role: role
+    };
+    const mockToken = 'jwt_simulado_mvp_12345';
+
+    // Guardamos en Zustand (Estado Global)
+    await setAuth(mockUser, mockToken);
+
+    // Navegamos al árbol correcto
+    router.replace(route);
   };
 
+  // 3. LA INTERFAZ: El cuerpo y diseño visual de la pantalla
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.formContainer}>
-        {/* Encabezado */}
-        <Text style={styles.title}>S Í N T E S I S</Text>
-        <Text style={styles.subtitle}>Sistema Integral Tecnológico</Text>
+      <View style={styles.card}>
+        <View style={styles.logoContainer}>
+          <IconSymbol name="lock.shield.fill" size={60} color={Colors.primary} />
+          <Text style={styles.title}>SÍNTESIS</Text>
+          <Text style={styles.subtitle}>Portal Académico</Text>
+        </View>
 
-        {/* Inputs */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Correo Institucional</Text>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Correo Electrónico</Text>
           <TextInput
             style={styles.input}
-            placeholder="estudiante@universidad.edu.co"
+            placeholder="ejemplo@sintesis.edu.co"
             placeholderTextColor={Colors.gray}
             value={email}
             onChangeText={setEmail}
-            keyboardType="email-address"
             autoCapitalize="none"
+            keyboardType="email-address"
           />
         </View>
 
-        <View style={styles.inputGroup}>
+        <View style={styles.inputContainer}>
           <Text style={styles.label}>Contraseña</Text>
           <TextInput
             style={styles.input}
@@ -55,47 +84,53 @@ export default function LoginScreen() {
           />
         </View>
 
-        {/* Botón Principal */}
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Ingresar al Sistema</Text>
+        <TouchableOpacity style={styles.button} onPress={handleLogin} activeOpacity={0.8}>
+          <Text style={styles.buttonText}>Iniciar Sesión</Text>
         </TouchableOpacity>
+
+        <Text style={styles.helperText}>
+          Tip MVP: Usa "docente" o "practicante" en el correo para cambiar de rol.
+        </Text>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
+// 4. LOS ESTILOS: El maquillaje (usando tu paleta antifatiga)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
     justifyContent: 'center',
-    padding: 24,
+    padding: 20,
   },
-  formContainer: {
+  card: {
     backgroundColor: Colors.surface,
-    padding: 32,
+    padding: 30,
     borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 2,
+    elevation: 5,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
   },
   title: {
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: '900',
     color: Colors.primary,
-    textAlign: 'center',
-    letterSpacing: 2,
-    marginBottom: 4,
+    marginTop: 10,
+    letterSpacing: 1.5,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.gray,
-    textAlign: 'center',
-    marginBottom: 32,
+    marginTop: 5,
   },
-  inputGroup: {
+  inputContainer: {
     marginBottom: 20,
   },
   label: {
@@ -105,11 +140,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   input: {
-    backgroundColor: Colors.light,
+    backgroundColor: Colors.background,
     borderWidth: 1,
     borderColor: Colors.window,
     borderRadius: 8,
-    padding: 16,
+    padding: 15,
     fontSize: 16,
     color: Colors.dark,
   },
@@ -118,11 +153,18 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 10,
   },
   buttonText: {
-    color: Colors.surface, // Usamos la variable de blanco puro para el texto sobre el botón primary
+    color: Colors.surface,
     fontSize: 16,
     fontWeight: 'bold',
   },
+  helperText: {
+    marginTop: 20,
+    textAlign: 'center',
+    color: Colors.gray,
+    fontSize: 12,
+    fontStyle: 'italic',
+  }
 });
