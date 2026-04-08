@@ -41,3 +41,6 @@ app-example
 # generated native folders
 /ios
 /android
+
+#contexto universal para agentes de inteligencia artificia
+UNIVERSAL_CONTEXT.md

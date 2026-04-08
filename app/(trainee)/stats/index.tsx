@@ -2,15 +2,15 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '@/src/theme/colors';
 
-export default function TeacherResultsScreen() {
+export default function TraineeGroupsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Resultados de Exámenes</Text>
-        <Text style={styles.subtitle}>Monitorea el rendimiento de tus estudiantes.</Text>
+        <Text style={styles.title}>Grupos Asignados</Text>
+        <Text style={styles.subtitle}>Modo auditoría: Solo lectura.</Text>
       </View>
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Consultando métricas de evaluación...</Text>
+        <Text style={styles.emptyText}>Cargando grupos observados...</Text>
       </View>
     </View>
   );
