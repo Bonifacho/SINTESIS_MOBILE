@@ -1,170 +1,202 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View, Text, TextInput, TouchableOpacity,
+  StyleSheet, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuthStore, Role } from '@/src/store/authStore';
+import { useAuthStore } from '@/src/store/authStore';
+import { authApi } from '@/src/api/auth';
 import { Colors } from '@/src/theme/colors';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const setAuth = useAuthStore((state) => state.setAuth);
-  
-  // 1. EL ESTADO: Guardamos lo que el usuario escribe
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const setAuth = useAuthStore((s) => s.setAuth);
 
-  // 2. LA LÓGICA: El "cerebro" que ya habíamos diseñado
+  const [username, setUsername]   = useState('');
+  const [password, setPassword]   = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [showPass, setShowPass]   = useState(false);
+
   const handleLogin = async () => {
-    if (!email || !password) return; // Validación básica
-
-    const emailLower = email.toLowerCase();
-    let role: Role = 'estudiante'; // Por defecto
-    let route: any = '/(student)';
-
-    // Asignación de roles según tu Base de Datos y MVP
-    if (emailLower.includes('docente')) {
-      role = 'docente';
-      route = '/(teacher)';
-    } else if (emailLower.includes('practicante')) {
-      role = 'practicante';
-      route = '/(trainee)';
+    if (!username.trim() || !password.trim()) {
+      Alert.alert('Campos requeridos', 'Ingresa tu usuario y contraseña.');
+      return;
     }
 
-    // Simulamos que el backend nos respondió exitosamente
-    const mockUser = {
-      id: 1,
-      email: emailLower,
-      full_name: 'Usuario MVP SÍNTESIS',
-      role: role
-    };
-    const mockToken = 'jwt_simulado_mvp_12345';
+    setLoading(true);
+    try {
+      const { access_token, user } = await authApi.login({
+        username: username.trim(),
+        password,
+      });
 
-    // Guardamos en Zustand (Estado Global)
-    await setAuth(mockUser, mockToken);
+      await setAuth(user, access_token);
 
-    // Navegamos al árbol correcto
-    router.replace(route);
+      // Redirigir según rol
+      const routes: Record<string, string> = {
+        docente:      '/(teacher)',
+        estudiante:   '/(student)',
+        practicante:  '/(trainee)',
+      };
+      router.replace((routes[user.role] ?? '/(student)') as any);
+
+    } catch (error: any) {
+      const msg = error?.response?.data?.error ?? 'Error al iniciar sesión.';
+      Alert.alert('Error de autenticación', msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // 3. LA INTERFAZ: El cuerpo y diseño visual de la pantalla
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.card}>
-        <View style={styles.logoContainer}>
-          <IconSymbol name="lock.shield.fill" size={60} color={Colors.primary} />
-          <Text style={styles.title}>SÍNTESIS</Text>
-          <Text style={styles.subtitle}>Portal Académico</Text>
+
+        {/* Logo */}
+        <View style={styles.logoBox}>
+          <IconSymbol name="lock.shield.fill" size={56} color={Colors.primary} />
+          <Text style={styles.appName}>SÍNTESIS</Text>
+          <Text style={styles.appSub}>Portal Académico</Text>
         </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Correo Electrónico</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="ejemplo@sintesis.edu.co"
-            placeholderTextColor={Colors.gray}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
+        {/* Usuario */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Usuario</Text>
+          <View style={styles.inputRow}>
+            <IconSymbol name="person.fill" size={18} color={Colors.gray} />
+            <TextInput
+              style={styles.input}
+              placeholder="Tu nombre de usuario"
+              placeholderTextColor={Colors.gray}
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!loading}
+            />
+          </View>
         </View>
 
-        <View style={styles.inputContainer}>
+        {/* Contraseña */}
+        <View style={styles.field}>
           <Text style={styles.label}>Contraseña</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="••••••••"
-            placeholderTextColor={Colors.gray}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          <View style={styles.inputRow}>
+            <IconSymbol name="lock.fill" size={18} color={Colors.gray} />
+            <TextInput
+              style={styles.input}
+              placeholder="Tu contraseña"
+              placeholderTextColor={Colors.gray}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPass}
+              editable={!loading}
+            />
+            <TouchableOpacity onPress={() => setShowPass(!showPass)}>
+              <IconSymbol
+                name={showPass ? 'eye.slash.fill' : 'eye.fill'}
+                size={18}
+                color={Colors.gray}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin} activeOpacity={0.8}>
-          <Text style={styles.buttonText}>Iniciar Sesión</Text>
+        {/* Botón */}
+        <TouchableOpacity
+          style={[styles.btn, loading && styles.btnDisabled]}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.btnText}>Ingresar</Text>
+          }
         </TouchableOpacity>
 
-        <Text style={styles.helperText}>
-          Tip MVP: Usa "docente" o "practicante" en el correo para cambiar de rol.
+        <Text style={styles.footer}>
+          Escuela Normal Superior María Auxiliadora · Girardot
         </Text>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-// 4. LOS ESTILOS: El maquillaje (usando tu paleta antifatiga)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
-    padding: 20,
+    padding: 24,
   },
   card: {
     backgroundColor: Colors.surface,
-    padding: 30,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    borderRadius: 20,
+    padding: 28,
   },
-  logoContainer: {
+  logoBox: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 28,
   },
-  title: {
+  appName: {
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: '800',
     color: Colors.primary,
     marginTop: 10,
-    letterSpacing: 1.5,
+    letterSpacing: 2,
   },
-  subtitle: {
-    fontSize: 16,
+  appSub: {
+    fontSize: 13,
     color: Colors.gray,
-    marginTop: 5,
+    marginTop: 4,
   },
-  inputContainer: {
-    marginBottom: 20,
-  },
+  field: { marginBottom: 16 },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.dark,
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.gray,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: 8,
   },
-  input: {
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.background,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.window,
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
+    paddingHorizontal: 14,
+    height: 52,
+    gap: 10,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
     color: Colors.dark,
   },
-  button: {
+  btn: {
     backgroundColor: Colors.primary,
-    padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
+    height: 52,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
-  buttonText: {
-    color: Colors.surface,
+  btnDisabled: { opacity: 0.6 },
+  btnText: {
+    color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
-  helperText: {
-    marginTop: 20,
+  footer: {
     textAlign: 'center',
+    fontSize: 11,
     color: Colors.gray,
-    fontSize: 12,
-    fontStyle: 'italic',
-  }
+    marginTop: 20,
+  },
 });

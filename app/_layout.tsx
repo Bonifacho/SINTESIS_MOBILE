@@ -1,31 +1,30 @@
-import { useEffect } from 'react';
-import { Slot, router } from 'expo-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { View, ActivityIndicator } from 'react-native';
-import { useAuthStore } from '@/src/store/authStore';
+import { Tabs } from 'expo-router';
 import { Colors } from '@/src/theme/colors';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 2, staleTime: 1000 * 60 * 5 } },
-});
-
-export default function RootLayout() {
-  const { isLoading, loadFromStorage } = useAuthStore();
-
-  useEffect(() => { loadFromStorage(); }, []);
-
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center',
-        alignItems: 'center', backgroundColor: Colors.background }}>
-        <ActivityIndicator color={Colors.primary} size="large" />
-      </View>
-    );
-  }
-
+export default function TraineeLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Slot />
-    </QueryClientProvider>
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: Colors.info, // Azul para lectura
+        tabBarInactiveTintColor: Colors.gray,
+        tabBarStyle: { backgroundColor: Colors.surface, borderTopColor: Colors.window, borderTopWidth: 1, height: 64, paddingBottom: 10, paddingTop: 6 },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        headerStyle: { backgroundColor: Colors.info },
+        headerTintColor: Colors.surface,
+        headerTitleStyle: { fontWeight: 'bold' },
+      }}
+    >
+      <Tabs.Screen name="index" options={{ title: 'Grupos', tabBarIcon: ({ color, size }) => <IconSymbol name="person.3.fill" size={size} color={color} /> }} />
+      <Tabs.Screen
+        name="students/index"
+        options={{
+          title: 'Estudiantes',
+          tabBarIcon: ({ color, size }) =>
+            <IconSymbol name="person.2.fill" size={size} color={color} />,
+        }} />
+      <Tabs.Screen name="stats/index" options={{ title: 'Estadísticas', tabBarIcon: ({ color, size }) => <IconSymbol name="chart.bar.fill" size={size} color={color} /> }} />
+      <Tabs.Screen name="profile/index" options={{ title: 'Perfil', tabBarIcon: ({ color, size }) => <IconSymbol name="person.crop.circle.fill" size={size} color={color} /> }} />
+    </Tabs>
   );
 }
