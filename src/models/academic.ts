@@ -1,46 +1,46 @@
 // src/models/academic.ts
-// Interfaces basadas estrictamente en el ERD de SÍNTESIS
-
-export interface AcademicTopic {
-  id: number;
-  name: string;
-  description: string;
-  is_active: boolean;
-}
-
 export interface AcademicGroup {
   id: number;
   name: string;
-  topic_id: number;
   teacher_id: number;
-  is_active: boolean;
+  is_active?: boolean;
+}
+
+export interface AcademicTopic {
+  id: number;
+  title: string;
+  group_id: number;
+  order_index: number;
+  is_active?: boolean;
+}
+
+export interface OVAResource {
+  id: number;
+  resource_type: 'pdf' | 'video' | 'link' | 'text';
+  display_title: string;
+  url: string | null;
+  content: string | null;
+  order_index: number;
 }
 
 export interface AcademicOva {
   id: number;
-  topic_id: number;
   title: string;
-  description: string;
+  description: string | null;
+  topic_id: number;
+  order_index: number;
   is_active: boolean;
+  resources: OVAResource[];
 }
 
 export interface ExamAttempt {
-  id: number;
-  enrollment_id: number;
-  ova_id: number;
-  start_time: string;
-  end_time: string | null;
-  
-  // 💡 REGLA DE NEGOCIO (ERD - Regla 2):
-  // 'score' y 'passed' NO existen físicamente en la DB.
-  // Se reciben dinámicamente desde el backend al hacer GET al resultado.
-  score?: number; 
-  passed?: boolean;
-}
-
-export interface AcademicGroupObserver {
-  id: number;
-  group_id: number;
-  practitioner_id: number; // Referencia al usuario con rol 'practicante'
-  is_active: boolean;
+  attempt_id: number;
+  exam_id: number;
+  student_id: number;
+  score: number;
+  passed: boolean;
+  correct_answers: number;
+  total_questions: number;
+  passing_score: number;
+  submitted_at: string;
 }

@@ -1,43 +1,50 @@
-import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
+import api from './client';
 
-type Role = 'student' | 'teacher' | null;
-
-interface AuthState {
-  token: string | null;
-  role: Role;
-  isLoading: boolean;
-  
-  // Acciones
-  setSession: (token: string, role: Role) => Promise<void>;
-  logout: () => Promise<void>;
-  checkSession: () => Promise<void>;
+export interface LoginPayload {
+  username: string;
+  password: string;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  token: null,
-  role: null,
-  isLoading: true, // Empieza cargando mientras revisa si hay un token guardado
+// Respuesta RAW que devuelve el backend
+interface BackendLoginResponse {
+  access_token: string;
+  user: {
+    user_id: number;
+    username: string;
+    roles: string[];
+  };
+}
 
-  setSession: async (token: string, role: Role) => {
-    await SecureStore.setItemAsync('sintesis_jwt', token);
-    await SecureStore.setItemAsync('sintesis_role', role as string);
-    set({ token, role });
+// Forma normalizada que usa el frontend
+export interface AuthResponse {
+  access_token: string;
+  user: {
+    id: number;
+    username: string;
+    full_name: string;
+    role: 'docente' | 'estudiante' | 'practicante';
+  };
+}
+
+export const authApi = {
+  login: async (payload: LoginPayload): Promise<AuthResponse> => {
+    const res = await api.post<BackendLoginResponse>(
+      '/api/v1/security/login', payload
+    );
+    const raw = res.data;
+    // Normalizamos aquí para que el resto del frontend
+    // nunca sepa que el backend usa arrays y user_id
+    return {
+      access_token: raw.access_token,
+      user: {
+        id:        raw.user.user_id,
+        username:  raw.user.username,
+        full_name: raw.user.username, // el backend no devuelve full_name en login
+        role:      (raw.user.roles[0] ?? 'estudiante') as AuthResponse['user']['role'],
+      },
+    };
   },
 
-  logout: async () => {
-    await SecureStore.deleteItemAsync('sintesis_jwt');
-    await SecureStore.deleteItemAsync('sintesis_role');
-    set({ token: null, role: null });
-  },
-
-  checkSession: async () => {
-    try {
-      const token = await SecureStore.getItemAsync('sintesis_jwt');
-      const role = await SecureStore.getItemAsync('sintesis_role') as Role;
-      set({ token, role, isLoading: false });
-    } catch (error) {
-      set({ token: null, role: null, isLoading: false });
-    }
-  },
-}));
+  logout: () =>
+    api.post('/api/v1/security/logout'),
+};
