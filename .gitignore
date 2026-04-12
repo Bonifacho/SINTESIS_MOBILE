@@ -31,7 +31,8 @@ yarn-error.*
 *.pem
 
 # local env files
-.env*.local
+.env*.local 
+.env
 
 # typescript
 *.tsbuildinfo
@@ -42,5 +43,6 @@ app-example
 /ios
 /android
 
-#contexto universal para agentes de inteligencia artificia
+#contexto universal para agentes de inteligencia artificial
 UNIVERSAL_CONTEXT.md
+update-context.js
