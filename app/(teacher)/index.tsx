@@ -1,33 +1,52 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
-import { useRouter } from 'expo-router';
+import { useMockDB } from '@/src/store/mockDB';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TeacherGroupsScreen() {
-  // Traemos la función para borrar la sesión y el enrutador
-  const clearAuth = useAuthStore((state) => state.clearAuth);
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    await clearAuth(); // Destruye el token del celular
-    router.replace('/(auth)/login'); // Te devuelve a la pantalla de Login
-  };
+  const router = useRouter(); // <-- Agregamos el enrutador
+  const { user } = useAuthStore();
+  const getGroupsByTeacher = useMockDB((s) => s.getGroupsByTeacher);
+  const getStudentsByGroup = useMockDB((s) => s.getStudentsByGroup);
+  
+  const myGroups = getGroupsByTeacher(user?.id || 0);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Gestión de Grupos</Text>
+        <Text style={styles.title}>Mis Grupos Asignados</Text>
         <Text style={styles.subtitle}>Selecciona un grupo para administrar su contenido.</Text>
       </View>
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Cargando grupos asignados...</Text>
-        
-        {/* BOTÓN DE CIERRE DE SESIÓN */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
-          <Text style={styles.logoutText}>Cerrar Sesión</Text>
-        </TouchableOpacity>
-      </View>
+      
+      <FlatList
+        data={myGroups}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={{ padding: 16, gap: 16 }}
+        renderItem={({ item }) => {
+          const studentCount = getStudentsByGroup(item.id).length;
+          return (
+            <TouchableOpacity 
+              style={styles.card} 
+              activeOpacity={0.8}
+              // <-- AQUÍ LA MAGIA: Navegamos a la pestaña de estudiantes y le pasamos el ID
+              onPress={() => router.push({ pathname: '/(teacher)/students', params: { preselectedGroup: item.id } })}
+            >
+              <View style={styles.cardHeader}>
+                <Ionicons name="folder-open" size={24} color={Colors.primary} />
+                <Text style={styles.cardTitle}>{item.name}</Text>
+              </View>
+              <Text style={styles.cardDesc}>{item.description}</Text>
+              <View style={styles.cardFooter}>
+                <Text style={styles.studentCount}>{studentCount} Estudiantes inscritos</Text>
+                <Ionicons name="chevron-forward" size={20} color={Colors.gray} />
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+      />
     </View>
   );
 }
@@ -37,24 +56,10 @@ const styles = StyleSheet.create({
   header: { padding: 24, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.window },
   title: { fontSize: 24, fontWeight: 'bold', color: Colors.dark, marginBottom: 4 },
   subtitle: { fontSize: 14, color: Colors.gray },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { fontSize: 16, color: Colors.gray, fontStyle: 'italic', marginBottom: 20 },
-  
-  // Estilos del nuevo botón usando tu color de error (Rojo suave)
-  logoutButton: {
-    backgroundColor: Colors.error, 
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  logoutText: {
-    color: Colors.surface,
-    fontSize: 16,
-    fontWeight: 'bold',
-  }
+  card: { backgroundColor: Colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: Colors.window, elevation: 2 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 10 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.dark },
+  cardDesc: { fontSize: 14, color: Colors.gray, marginBottom: 16, lineHeight: 20 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: Colors.window, paddingTop: 12 },
+  studentCount: { fontSize: 13, fontWeight: '600', color: Colors.secondary }
 });

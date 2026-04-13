@@ -2,22 +2,23 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/src/store/authStore';
-import { authApi } from '@/src/api/auth';
+import { useMockDB } from '@/src/store/mockDB';
 import { Colors } from '@/src/theme/colors';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function LoginScreen() {
-  const router = useRouter();
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const router   = useRouter();
+  const setAuth  = useAuthStore((s) => s.setAuth);
+  const getUserByCredentials = useMockDB((s) => s.getUserByCredentials);
 
-  const [username, setUsername]   = useState('');
-  const [password, setPassword]   = useState('');
-  const [loading, setLoading]     = useState(false);
-  const [showPass, setShowPass]   = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading,  setLoading]  = useState(false);
+  const [showPass, setShowPass] = useState(false);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -26,25 +27,43 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
+
     try {
-      const { access_token, user } = await authApi.login({
-        username: username.trim(),
-        password,
-      });
+      // 1. Simulación visual
+      await new Promise((r) => setTimeout(r, 800));
 
-      await setAuth(user, access_token);
+      // 2. Búsqueda en nuestra base de datos en RAM
+      const user = getUserByCredentials(username.trim(), password);
 
-      // Redirigir según rol
-      const routes: Record<string, string> = {
-        docente:      '/(teacher)',
-        estudiante:   '/(student)',
-        practicante:  '/(trainee)',
-      };
-      router.replace((routes[user.role] ?? '/(student)') as any);
+      if (!user) {
+        setLoading(false);
+        Alert.alert('Error', 'Usuario o contraseña incorrectos.');
+        return;
+      }
 
-    } catch (error: any) {
-      const msg = error?.response?.data?.error ?? 'Error al iniciar sesión.';
-      Alert.alert('Error de autenticación', msg);
+      // 3. Guardar sesión (Ahora es inmediato y no se cuelga)
+      await setAuth(
+        {
+          id:        user.id,
+          username:  user.username,
+          full_name: user.full_name,
+          role:      user.role,
+        },
+        `mock-jwt-${user.role}-${user.id}`
+      );
+
+      // 4. Navegación directa forzada
+      if (user.role === 'docente') {
+        router.replace('/(teacher)');
+      } else if (user.role === 'practicante') {
+        router.replace('/(trainee)');
+      } else {
+        router.replace('/(student)');
+      }
+      
+    } catch (error) {
+      console.error("Error en login:", error);
+      Alert.alert('Error', 'Problema al redirigir.');
     } finally {
       setLoading(false);
     }
@@ -57,21 +76,26 @@ export default function LoginScreen() {
     >
       <View style={styles.card}>
 
-        {/* Logo */}
         <View style={styles.logoBox}>
           <IconSymbol name="lock.shield.fill" size={56} color={Colors.primary} />
           <Text style={styles.appName}>SÍNTESIS</Text>
           <Text style={styles.appSub}>Portal Académico</Text>
         </View>
 
-        {/* Usuario */}
+        {/* Credenciales demo visibles */}
+        <View style={styles.demoBanner}>
+          <Text style={styles.demoTitle}>Credenciales demo</Text>
+          <Text style={styles.demoLine}>docente / estudiante / practicante</Text>
+          <Text style={styles.demoLine}>Contraseña: 1234</Text>
+        </View>
+
         <View style={styles.field}>
           <Text style={styles.label}>Usuario</Text>
           <View style={styles.inputRow}>
             <IconSymbol name="person.fill" size={18} color={Colors.gray} />
             <TextInput
               style={styles.input}
-              placeholder="Tu nombre de usuario"
+              placeholder="docente / estudiante / practicante"
               placeholderTextColor={Colors.gray}
               value={username}
               onChangeText={setUsername}
@@ -82,14 +106,13 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        {/* Contraseña */}
         <View style={styles.field}>
           <Text style={styles.label}>Contraseña</Text>
           <View style={styles.inputRow}>
             <IconSymbol name="lock.fill" size={18} color={Colors.gray} />
             <TextInput
               style={styles.input}
-              placeholder="Tu contraseña"
+              placeholder="1234"
               placeholderTextColor={Colors.gray}
               value={password}
               onChangeText={setPassword}
@@ -106,7 +129,6 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        {/* Botón */}
         <TouchableOpacity
           style={[styles.btn, loading && styles.btnDisabled]}
           onPress={handleLogin}
@@ -140,7 +162,7 @@ const styles = StyleSheet.create({
   },
   logoBox: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 16,
   },
   appName: {
     fontSize: 28,
@@ -153,6 +175,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.gray,
     marginTop: 4,
+  },
+  demoBanner: {
+    backgroundColor: Colors.primary + '12',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+  },
+  demoTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  demoLine: {
+    fontSize: 12,
+    color: Colors.gray,
   },
   field: { marginBottom: 16 },
   label: {

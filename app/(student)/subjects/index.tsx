@@ -1,85 +1,95 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import {
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+} from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/src/theme/colors';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-
-// Mocks basados en tus modelos de la Base de Datos
-const MOCK_SUBJECTS = [
-  { id: '1', name: 'Química Orgánica', description: 'Nomenclatura de hidrocarburos y reacciones.', teacher: 'Prof. Carlos Ramírez' },
-  { id: '2', name: 'Fisicoquímica', description: 'Termodinámica y cinética química.', teacher: 'Dra. María Gómez' },
-  { id: '3', name: 'Bioquímica', description: 'Estructura y función de biomoléculas.', teacher: 'Prof. Luis Torres' },
-];
+import { useAuthStore } from '@/src/store/authStore';
+import { useMockDB } from '@/src/store/mockDB';
 
 export default function SubjectsScreen() {
   const router = useRouter();
+  const user   = useAuthStore((s) => s.user);
+  const getGroupsByStudent = useMockDB((s) => s.getGroupsByStudent);
 
-  // Enrutamiento protegido hacia el OVA (ruta oculta en el Tab)
-  const handleSelectSubject = (subjectName: string) => {
-    router.push({ pathname: '/(student)/ovas', params: { name: subjectName } });
-  };
-
-  const renderSubjectCard = ({ item }: { item: typeof MOCK_SUBJECTS[0] }) => (
-    <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => handleSelectSubject(item.name)}>
-      <View style={styles.cardHeader}>
-        <View style={styles.iconContainer}>
-          <IconSymbol name="book.fill" size={24} color={Colors.primary} />
-        </View>
-        <View style={styles.cardTitleContainer}>
-          <Text style={styles.cardTitle}>{item.name}</Text>
-          <Text style={styles.teacherText}>{item.teacher}</Text>
-        </View>
-      </View>
-      <Text style={styles.cardDescription}>{item.description}</Text>
-      <View style={styles.cardFooter}>
-        <Text style={styles.actionText}>Ver OVAs Disponibles</Text>
-        <IconSymbol name="chevron.right" size={20} color={Colors.secondary} />
-      </View>
-    </TouchableOpacity>
-  );
+  const groups = user ? getGroupsByStudent(user.id) : [];
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Mis Asignaturas</Text>
-        <Text style={styles.subtitle}>Selecciona una materia para acceder a su contenido interactivo.</Text>
+        <Text style={styles.subtitle}>
+          Selecciona una materia para acceder a su contenido interactivo.
+        </Text>
       </View>
 
       <FlatList
-        data={MOCK_SUBJECTS}
-        keyExtractor={(item) => item.id}
-        renderItem={renderSubjectCard}
-        contentContainerStyle={styles.listContainer}
+        data={groups}
+        keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={() => (
+          <View style={styles.empty}>
+            <Ionicons name="school-outline" size={48} color={Colors.gray} />
+            <Text style={styles.emptyText}>No tienes materias asignadas.</Text>
+          </View>
+        )}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={styles.card}
+            activeOpacity={0.75}
+            onPress={() =>
+              router.push({
+                pathname: '/(student)/ovas',
+                params: { groupId: item.id, name: item.name },
+              })
+            }
+          >
+            <View style={styles.cardHeader}>
+              <View style={styles.iconBox}>
+                <Ionicons name="flask" size={24} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <Text style={styles.cardSub}>{item.description}</Text>
+              </View>
+            </View>
+            <View style={styles.cardFooter}>
+              <Text style={styles.footerText}>Ver OVAs Disponibles</Text>
+              <Ionicons name="chevron-forward" size={18} color={Colors.secondary} />
+            </View>
+          </TouchableOpacity>
+        )}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { padding: 24, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.window },
-  title: { fontSize: 24, fontWeight: 'bold', color: Colors.dark, marginBottom: 4 },
-  subtitle: { fontSize: 14, color: Colors.gray, lineHeight: 20 },
-  listContainer: { padding: 16, gap: 16 },
+  container:  { flex: 1, backgroundColor: Colors.background },
+  header:     { padding: 24, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.window },
+  title:      { fontSize: 24, fontWeight: 'bold', color: Colors.dark, marginBottom: 4 },
+  subtitle:   { fontSize: 14, color: Colors.gray, lineHeight: 20 },
+  list:       { padding: 16, gap: 14 },
+  empty:      { alignItems: 'center', paddingTop: 60, gap: 12 },
+  emptyText:  { fontSize: 15, color: Colors.gray, fontStyle: 'italic' },
   card: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    padding: 20,
-    elevation: 3, // Elevación Material Design 3
-    shadowColor: Colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    padding: 18,
     borderWidth: 1,
     borderColor: Colors.window,
+    elevation: 3,
+    shadowColor: Colors.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  iconContainer: { width: 48, height: 48, borderRadius: 12, backgroundColor: `${Colors.primary}15`, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  cardTitleContainer: { flex: 1 },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: Colors.dark, marginBottom: 2 },
-  teacherText: { fontSize: 13, color: Colors.gray, fontWeight: '500' },
-  cardDescription: { fontSize: 14, color: Colors.gray, lineHeight: 22, marginBottom: 16 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.window },
-  actionText: { fontSize: 14, fontWeight: '600', color: Colors.secondary },
+  cardHeader:  { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 },
+  iconBox:     { width: 48, height: 48, borderRadius: 12, backgroundColor: Colors.primary + '15', justifyContent: 'center', alignItems: 'center' },
+  cardTitle:   { fontSize: 17, fontWeight: '700', color: Colors.dark },
+  cardSub:     { fontSize: 13, color: Colors.gray, marginTop: 3, lineHeight: 18 },
+  cardFooter:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.window },
+  footerText:  { fontSize: 14, fontWeight: '600', color: Colors.secondary },
 });

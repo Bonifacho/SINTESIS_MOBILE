@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
 
 export type Role = 'docente' | 'estudiante' | 'practicante';
 
@@ -16,34 +15,22 @@ interface AuthState {
   isLoading: boolean;
   setAuth: (user: User, token: string) => Promise<void>;
   clearAuth: () => Promise<void>;
-  loadFromStorage: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
-  isLoading: true,
+  
+  // FIX 1: Empieza en false. Si estaba en true, la app entera se colgaba al recargar.
+  isLoading: false,
 
   setAuth: async (user, token) => {
-    await SecureStore.setItemAsync('jwt', token);
-    await SecureStore.setItemAsync('user', JSON.stringify(user));
+    // FIX 2: Autenticación 100% en Memoria RAM para la presentación.
+    // Evita los bloqueos silenciosos nativos de Expo SecureStore.
     set({ user, token });
   },
 
   clearAuth: async () => {
-    await SecureStore.deleteItemAsync('jwt');
-    await SecureStore.deleteItemAsync('user');
     set({ user: null, token: null });
-  },
-
-  loadFromStorage: async () => {
-    try {
-      const token = await SecureStore.getItemAsync('jwt');
-      const raw   = await SecureStore.getItemAsync('user');
-      const user  = raw ? (JSON.parse(raw) as User) : null;
-      set({ token, user, isLoading: false });
-    } catch {
-      set({ isLoading: false });
-    }
   },
 }));
