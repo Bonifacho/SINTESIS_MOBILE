@@ -6,14 +6,13 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/src/store/authStore';
-import { useMockDB } from '@/src/store/mockDB';
+import { authApi } from '@/src/api/auth'; // <-- IMPORTAMOS LA API REAL
 import { Colors } from '@/src/theme/colors';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function LoginScreen() {
   const router   = useRouter();
   const setAuth  = useAuthStore((s) => s.setAuth);
-  const getUserByCredentials = useMockDB((s) => s.getUserByCredentials);
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -29,41 +28,33 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      // 1. Simulación visual
-      await new Promise((r) => setTimeout(r, 800));
+      // 1. Llamada HTTP real al backend Flask
+      const response = await authApi.login({
+        username: username.trim(),
+        password: password
+      });
 
-      // 2. Búsqueda en nuestra base de datos en RAM
-      const user = getUserByCredentials(username.trim(), password);
+      // 2. Guardar sesión en SecureStore y Zustand
+      await setAuth(response.user, response.access_token);
 
-      if (!user) {
-        setLoading(false);
-        Alert.alert('Error', 'Usuario o contraseña incorrectos.');
-        return;
-      }
-
-      // 3. Guardar sesión (Ahora es inmediato y no se cuelga)
-      await setAuth(
-        {
-          id:        user.id,
-          username:  user.username,
-          full_name: user.full_name,
-          role:      user.role,
-        },
-        `mock-jwt-${user.role}-${user.id}`
-      );
-
-      // 4. Navegación directa forzada
-      if (user.role === 'docente') {
+      // 3. Navegación basada en el rol real que devuelve la base de datos
+      if (response.user.role === 'docente') {
         router.replace('/(teacher)');
-      } else if (user.role === 'practicante') {
+      } else if (response.user.role === 'practicante') {
         router.replace('/(trainee)');
       } else {
         router.replace('/(student)');
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error en login:", error);
-      Alert.alert('Error', 'Problema al redirigir.');
+      
+      // Manejo de errores específicos del backend
+      if (error.response?.status === 401) {
+        Alert.alert('Acceso denegado', 'Usuario o contraseña incorrectos.');
+      } else {
+        Alert.alert('Error de conexión', 'No se pudo conectar con el servidor. Verifica tu red o que la API de Python esté corriendo.');
+      }
     } finally {
       setLoading(false);
     }
@@ -82,20 +73,13 @@ export default function LoginScreen() {
           <Text style={styles.appSub}>Portal Académico</Text>
         </View>
 
-        {/* Credenciales demo visibles */}
-        <View style={styles.demoBanner}>
-          <Text style={styles.demoTitle}>Credenciales demo</Text>
-          <Text style={styles.demoLine}>docente / estudiante / practicante</Text>
-          <Text style={styles.demoLine}>Contraseña: 1234</Text>
-        </View>
-
         <View style={styles.field}>
           <Text style={styles.label}>Usuario</Text>
           <View style={styles.inputRow}>
             <IconSymbol name="person.fill" size={18} color={Colors.gray} />
             <TextInput
               style={styles.input}
-              placeholder="docente / estudiante / practicante"
+              placeholder="Ingresa tu usuario"
               placeholderTextColor={Colors.gray}
               value={username}
               onChangeText={setUsername}
@@ -112,7 +96,7 @@ export default function LoginScreen() {
             <IconSymbol name="lock.fill" size={18} color={Colors.gray} />
             <TextInput
               style={styles.input}
-              placeholder="1234"
+              placeholder="••••••••"
               placeholderTextColor={Colors.gray}
               value={password}
               onChangeText={setPassword}
@@ -141,7 +125,7 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <Text style={styles.footer}>
-          Escuela Normal Superior María Auxiliadora · Girardot
+          Conectando a servidor: {process.env.EXPO_PUBLIC_API_URL}
         </Text>
       </View>
     </KeyboardAvoidingView>
@@ -149,97 +133,17 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 28,
-  },
-  logoBox: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  appName: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: Colors.primary,
-    marginTop: 10,
-    letterSpacing: 2,
-  },
-  appSub: {
-    fontSize: 13,
-    color: Colors.gray,
-    marginTop: 4,
-  },
-  demoBanner: {
-    backgroundColor: Colors.primary + '12',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.primary + '30',
-  },
-  demoTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  demoLine: {
-    fontSize: 12,
-    color: Colors.gray,
-  },
+  container: { flex: 1, backgroundColor: Colors.primary, justifyContent: 'center', padding: 24 },
+  card: { backgroundColor: Colors.surface, borderRadius: 20, padding: 28 },
+  logoBox: { alignItems: 'center', marginBottom: 24 },
+  appName: { fontSize: 28, fontWeight: '800', color: Colors.primary, marginTop: 10, letterSpacing: 2 },
+  appSub: { fontSize: 13, color: Colors.gray, marginTop: 4 },
   field: { marginBottom: 16 },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.gray,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.window,
-    paddingHorizontal: 14,
-    height: 52,
-    gap: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: Colors.dark,
-  },
-  btn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-  },
+  label: { fontSize: 12, fontWeight: '700', color: Colors.gray, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background, borderRadius: 12, borderWidth: 1, borderColor: Colors.window, paddingHorizontal: 14, height: 52, gap: 10 },
+  input: { flex: 1, fontSize: 15, color: Colors.dark },
+  btn: { backgroundColor: Colors.primary, borderRadius: 12, height: 52, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
   btnDisabled: { opacity: 0.6 },
-  btnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  footer: {
-    textAlign: 'center',
-    fontSize: 11,
-    color: Colors.gray,
-    marginTop: 20,
-  },
+  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  footer: { textAlign: 'center', fontSize: 11, color: Colors.gray, marginTop: 20 },
 });

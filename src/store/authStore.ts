@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import * as SecureStore from 'expo-secure-store';
 
 export type Role = 'docente' | 'estudiante' | 'practicante';
 
@@ -15,22 +16,42 @@ interface AuthState {
   isLoading: boolean;
   setAuth: (user: User, token: string) => Promise<void>;
   clearAuth: () => Promise<void>;
+  restoreSession: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
-  
-  // FIX 1: Empieza en false. Si estaba en true, la app entera se colgaba al recargar.
-  isLoading: false,
+  isLoading: true, // Empezamos en true para buscar sesiones previas al abrir la app
 
   setAuth: async (user, token) => {
-    // FIX 2: Autenticación 100% en Memoria RAM para la presentación.
-    // Evita los bloqueos silenciosos nativos de Expo SecureStore.
+    // Guardamos el token para Axios y el usuario para mantener la sesión viva
+    await SecureStore.setItemAsync('jwt', token);
+    await SecureStore.setItemAsync('user_session', JSON.stringify(user));
     set({ user, token });
   },
 
   clearAuth: async () => {
+    // Destruimos las llaves reales
+    await SecureStore.deleteItemAsync('jwt');
+    await SecureStore.deleteItemAsync('user_session');
     set({ user: null, token: null });
   },
+
+  restoreSession: async () => {
+    try {
+      const token = await SecureStore.getItemAsync('jwt');
+      const userStr = await SecureStore.getItemAsync('user_session');
+      if (token && userStr) {
+        set({ user: JSON.parse(userStr), token, isLoading: false });
+        return;
+      }
+    } catch (e) {
+      console.error("Error restaurando sesión:", e);
+    }
+    set({ isLoading: false });
+  }
 }));
+
+// Disparamos la recuperación de sesión en cuanto el store se inicializa
+useAuthStore.getState().restoreSession();
