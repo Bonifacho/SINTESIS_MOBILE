@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Alert, ActivityIndicator,
@@ -7,41 +7,84 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
-import { useMockDB } from '@/src/store/mockDB';
+import { academicApi } from '@/src/api/academic';
+import type { Exam, ExamQuestion } from '@/src/models/academic';
 
 export default function ExamScreen() {
   const router  = useRouter();
   const user    = useAuthStore((s) => s.user);
   const { ovaId } = useLocalSearchParams<{ ovaId: string }>();
 
-  const getQuestionsByOva = useMockDB((s) => s.getQuestionsByOva);
-  const getOvaById        = useMockDB((s) => s.getOvaById);
-  const registerAttempt   = useMockDB((s) => s.registerAttempt);
+  // Estado de carga del examen desde la API
+  const [exam, setExam] = useState<Exam | null>(null);
+  const [questions, setQuestions] = useState<ExamQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const ova       = getOvaById(Number(ovaId));
-  const questions = getQuestionsByOva(Number(ovaId));
-
+  // Estado de la UI del examen
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers]           = useState<Record<number, number>>({});
   const [submitting, setSubmitting]     = useState(false);
 
-  const currentQ    = questions[currentIndex];
-  const totalQ      = questions.length;
-  const isLast      = currentIndex === totalQ - 1;
-  const isAnswered  = currentQ ? answers[currentQ.id] !== undefined : false;
-  const progress    = totalQ > 0 ? ((currentIndex + 1) / totalQ) * 100 : 0;
+  // ── Cargar examen desde la API ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!ovaId) return;
 
-  if (!ova || totalQ === 0) {
+    const fetchExam = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await academicApi.getExamByOva(Number(ovaId));
+        const fetchedExam = res.data.data;
+        setExam(fetchedExam);
+        setQuestions(fetchedExam.questions ?? []);
+      } catch (err) {
+        console.error('[Exam] Error cargando examen:', err);
+        setError('No se pudo cargar el examen.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExam();
+  }, [ovaId]);
+
+  // ── Tracking Silencioso ────────────────────────────────────────────────────
+  // Registra la entrada del estudiante al examen para métricas del docente.
+  useEffect(() => {
+    if (!user?.id || !ovaId) return;
+    academicApi.trackProgress(user.id, Number(ovaId), 'exam_started').catch((err) => {
+      console.error('[Tracking] Error registrando acceso al examen:', err);
+    });
+  }, [user?.id, ovaId]);
+
+  // ── Estados de carga y error ──────────────────────────────────────────────
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>Cargando examen...</Text>
+      </View>
+    );
+  }
+
+  if (error || !exam || questions.length === 0) {
     return (
       <View style={styles.centered}>
         <Ionicons name="alert-circle-outline" size={52} color={Colors.warning} />
-        <Text style={styles.errorText}>Examen no disponible.</Text>
+        <Text style={styles.errorText}>{error ?? 'Examen no disponible.'}</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(student)/subjects')}>
           <Text style={styles.backBtnText}>Volver a Materias</Text>
         </TouchableOpacity>
       </View>
     );
   }
+
+  const currentQ    = questions[currentIndex];
+  const totalQ      = questions.length;
+  const isLast      = currentIndex === totalQ - 1;
+  const isAnswered  = currentQ ? answers[currentQ.id] !== undefined : false;
+  const progress    = totalQ > 0 ? ((currentIndex + 1) / totalQ) * 100 : 0;
 
   if (!currentQ) {
     return (
@@ -63,7 +106,6 @@ export default function ExamScreen() {
     setCurrentIndex((prev) => (prev < totalQ - 1 ? prev + 1 : prev));
   };
 
-  // NUEVO: Función para retroceder y corregir
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev > 0 ? prev - 1 : prev));
   };
@@ -82,19 +124,29 @@ export default function ExamScreen() {
           text: 'Enviar',
           onPress: async () => {
             setSubmitting(true);
-            await new Promise((r) => setTimeout(r, 700));
+            try {
+              const formattedAnswers = Object.entries(answers).map(
+                ([qId, optId]) => ({
+                  question_id:        Number(qId),
+                  selected_option_id: optId,
+                })
+              );
 
-            const formattedAnswers = Object.entries(answers).map(
-              ([qId, optId]) => ({
-                question_id:        Number(qId),
-                selected_option_id: optId,
-              })
-            );
+              // 1. Crear intento en el backend
+              const attemptRes = await academicApi.startAttempt(user!.id, exam.id);
+              const attemptId = attemptRes.data.data.id;
 
-            const attempt = registerAttempt(Number(ovaId), user!.id, formattedAnswers);
-            setSubmitting(false);
-            
-            router.replace(`/(student)/ovas/exam/result/${attempt.id}` as any);
+              // 2. Enviar respuestas al backend
+              await academicApi.submitAttempt(attemptId, formattedAnswers);
+
+              // 3. Navegar al resultado
+              router.replace(`/(student)/ovas/exam/result/${attemptId}` as any);
+            } catch (err) {
+              console.error('[Exam] Error enviando examen:', err);
+              Alert.alert('Error', 'No se pudo enviar el examen. Intenta de nuevo.');
+            } finally {
+              setSubmitting(false);
+            }
           },
         },
       ]
@@ -108,7 +160,7 @@ export default function ExamScreen() {
           <Ionicons name="close" size={26} color={Colors.gray} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.examTitle} numberOfLines={1}>{ova.title}</Text>
+          <Text style={styles.examTitle} numberOfLines={1}>{exam.title}</Text>
           <Text style={styles.examSub}>Pregunta {currentIndex + 1} de {totalQ}</Text>
         </View>
       </View>
@@ -140,7 +192,6 @@ export default function ExamScreen() {
         })}
       </ScrollView>
 
-      {/* NUEVO: Layout del pie de página con botones de Anterior y Siguiente */}
       <View style={styles.footer}>
         {currentIndex > 0 ? (
           <TouchableOpacity style={styles.actionBtnSecondary} onPress={handlePrev}>
@@ -176,6 +227,7 @@ export default function ExamScreen() {
 const styles = StyleSheet.create({
   container:           { flex: 1, backgroundColor: Colors.background },
   centered:            { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
+  loadingText:         { fontSize: 14, color: Colors.gray },
   errorText:           { fontSize: 16, color: Colors.gray, textAlign: 'center' },
   backBtn:             { backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
   backBtnText:         { color: '#fff', fontWeight: '700' },

@@ -1,19 +1,58 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
-import { useMockDB } from '@/src/store/mockDB';
+import { academicApi } from '@/src/api/academic';
+import type { AcademicGroup } from '@/src/models/academic';
 
 export default function SubjectsScreen() {
   const router = useRouter();
   const user   = useAuthStore((s) => s.user);
-  const getGroupsByStudent = useMockDB((s) => s.getGroupsByStudent);
 
-  const groups = user ? getGroupsByStudent(user.id) : [];
+  const [groups, setGroups] = useState<AcademicGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchGroups = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await academicApi.getUserGroups(user.id);
+        setGroups(res.data.data);
+      } catch (err) {
+        console.error('[Subjects] Error cargando materias:', err);
+        setError('No se pudieron cargar tus materias.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGroups();
+  }, [user?.id]);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="cloud-offline-outline" size={48} color={Colors.error} />
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -68,6 +107,8 @@ export default function SubjectsScreen() {
 
 const styles = StyleSheet.create({
   container:  { flex: 1, backgroundColor: Colors.background },
+  centered:   { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  errorText:  { fontSize: 15, color: Colors.error, textAlign: 'center', paddingHorizontal: 24 },
   header:     { padding: 24, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.window },
   title:      { fontSize: 24, fontWeight: 'bold', color: Colors.dark, marginBottom: 4 },
   subtitle:   { fontSize: 14, color: Colors.gray, lineHeight: 20 },

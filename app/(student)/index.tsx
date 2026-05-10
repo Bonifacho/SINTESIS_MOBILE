@@ -1,19 +1,60 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
-import { useMockDB } from '@/src/store/mockDB';
+import { academicApi } from '@/src/api/academic';
 import { Ionicons } from '@expo/vector-icons';
+import type { AcademicGroup, ExamAttempt } from '@/src/models/academic';
 
 export default function StudentHome() {
   const { user } = useAuthStore();
-  
-  // Conectamos a la base de datos en RAM para contar datos reales
-  const getGroupsByStudent = useMockDB((s) => s.getGroupsByStudent);
-  const getAttemptsByStudent = useMockDB((s) => s.getAttemptsByStudent);
-  
-  const myGroups = getGroupsByStudent(user?.id || 0);
-  const myAttempts = getAttemptsByStudent(user?.id || 0);
+
+  const [groups, setGroups] = useState<AcademicGroup[]>([]);
+  const [attempts, setAttempts] = useState<ExamAttempt[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const [groupsRes, attemptsRes] = await Promise.all([
+          academicApi.getUserGroups(user.id),
+          academicApi.getStudentAttempts(user.id),
+        ]);
+        setGroups(groupsRes.data.data);
+        setAttempts(attemptsRes.data.data);
+      } catch (err) {
+        console.error('[StudentHome] Error cargando datos:', err);
+        setError('No se pudieron cargar tus datos académicos.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user?.id]);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>Cargando tu resumen...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="cloud-offline-outline" size={48} color={Colors.error} />
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -32,11 +73,11 @@ export default function StudentHome() {
         <Text style={styles.sectionTitle}>Mi Resumen Académico</Text>
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>{myGroups.length}</Text>
+            <Text style={styles.statNumber}>{groups.length}</Text>
             <Text style={styles.statLabel}>Materias</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>{myAttempts.length}</Text>
+            <Text style={styles.statNumber}>{attempts.length}</Text>
             <Text style={styles.statLabel}>Exámenes</Text>
           </View>
         </View>
@@ -48,6 +89,9 @@ export default function StudentHome() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, gap: 20 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: Colors.gray },
+  errorText: { fontSize: 15, color: Colors.error, textAlign: 'center', paddingHorizontal: 24 },
   profileCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 24, alignItems: 'center', elevation: 4, shadowColor: Colors.dark, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 },
   avatarContainer: { marginBottom: 12 },
   userName: { fontSize: 22, fontWeight: 'bold', color: Colors.dark, marginBottom: 4, textAlign: 'center' },

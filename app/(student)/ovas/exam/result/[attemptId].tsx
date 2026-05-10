@@ -1,30 +1,55 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/src/theme/colors';
-import { useAuthStore } from '@/src/store/authStore';
-import { useMockDB } from '@/src/store/mockDB';
+import { academicApi } from '@/src/api/academic';
+import type { ExamAttempt } from '@/src/models/academic';
 
 export default function ExamResultScreen() {
   const router      = useRouter();
-  const user        = useAuthStore((s) => s.user);
   const { attemptId } = useLocalSearchParams<{ attemptId: string }>();
 
-  const getAttemptsByStudent = useMockDB((s) => s.getAttemptsByStudent);
-  const getOvaById           = useMockDB((s) => s.getOvaById);
+  const [attempt, setAttempt] = useState<ExamAttempt | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const attempts = user ? getAttemptsByStudent(user.id) : [];
-  const attempt  = attempts.find((a) => a.id === Number(attemptId));
-  const ova      = attempt ? getOvaById(attempt.ova_id) : null;
+  useEffect(() => {
+    if (!attemptId) return;
 
-  if (!attempt) {
+    const fetchResult = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await academicApi.getAttemptResult(Number(attemptId));
+        setAttempt(res.data.data);
+      } catch (err) {
+        console.error('[Result] Error cargando resultado:', err);
+        setError('No se pudo cargar el resultado.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResult();
+  }, [attemptId]);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>Cargando resultado...</Text>
+      </View>
+    );
+  }
+
+  if (error || !attempt) {
     return (
       <View style={styles.centered}>
         <Ionicons name="alert-circle-outline" size={52} color={Colors.warning} />
-        <Text style={styles.errorText}>No se encontró el resultado.</Text>
+        <Text style={styles.errorText}>{error ?? 'No se encontró el resultado.'}</Text>
         <TouchableOpacity
           style={styles.primaryBtn}
           onPress={() => router.replace('/(student)/subjects' as any)}
@@ -47,7 +72,7 @@ export default function ExamResultScreen() {
       <View style={[styles.resultCard, { borderColor: accentColor + '40' }]}>
         <Ionicons name={icon} size={72} color={accentColor} />
         <Text style={[styles.resultLabel, { color: accentColor }]}>{label}</Text>
-        <Text style={styles.ovaName}>{ova?.title ?? 'Examen'}</Text>
+        <Text style={styles.ovaName}>Examen</Text>
 
         {/* Score circular visual */}
         <View style={[styles.scoreCircle, { borderColor: accentColor }]}>
@@ -142,6 +167,7 @@ const styles = StyleSheet.create({
   container:      { flex: 1, backgroundColor: Colors.background },
   body:           { padding: 20, gap: 16, paddingBottom: 40 },
   centered:       { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
+  loadingText:    { fontSize: 14, color: Colors.gray },
   errorText:      { fontSize: 16, color: Colors.gray, textAlign: 'center' },
   resultCard: {
     backgroundColor: Colors.surface,

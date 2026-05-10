@@ -42,6 +42,14 @@ export default function StudentLayout() {
           tabBarStyle: { display: 'none' } // Mantiene la inmersión en el resultado
         }} 
       />
+      <Tabs.Screen 
+        name="ovas/video/[id]" 
+        options={{ 
+          href: null,                       // Oculta del Tab Bar
+          headerShown: false,               // Sin header para reproductor inmersivo
+          tabBarStyle: { display: 'none' }  // Sin barra inferior durante la reproducción
+        }} 
+      />
     </Tabs>
   );
 }
