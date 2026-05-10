@@ -1,23 +1,77 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
-import { useMockDB } from '@/src/store/mockDB';
+import { academicApi } from '@/src/api/academic';
 import { Ionicons } from '@expo/vector-icons';
 import SearchableSelect from '@/src/components/ui/searchableSelect';
+import type { AcademicGroup, ExamAttempt, EnrolledStudent } from '@/src/models/academic';
 
 export default function TeacherResultsScreen() {
   const user = useAuthStore((s) => s.user);
-  const getGroupsByTeacher = useMockDB((s) => s.getGroupsByTeacher);
-  const getAttemptsByGroup = useMockDB((s) => s.getAttemptsByGroup);
-  const getUserById = useMockDB((s) => s.getUserById);
-  const getOvaById = useMockDB((s) => s.getOvaById);
 
-  const myGroups = user ? getGroupsByTeacher(user.id) : [];
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(myGroups.length > 0 ? myGroups[0].id : null);
+  const [groups, setGroups] = useState<AcademicGroup[]>([]);
+  const [attempts, setAttempts] = useState<ExamAttempt[]>([]);
+  const [students, setStudents] = useState<EnrolledStudent[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [loadingGroups, setLoadingGroups] = useState(true);
+  const [loadingAttempts, setLoadingAttempts] = useState(false);
 
-  const attempts = selectedGroupId ? getAttemptsByGroup(selectedGroupId) : [];
-  const selectOptions = myGroups.map(g => ({ id: g.id, description: g.name }));
+  // Cargar grupos del docente
+  useEffect(() => {
+    if (!user?.id) return;
+    const fetchGroups = async () => {
+      try {
+        setLoadingGroups(true);
+        const res = await academicApi.getUserGroups(user.id);
+        const fetched: AcademicGroup[] = res.data.data;
+        setGroups(fetched);
+        if (fetched.length > 0) setSelectedGroupId(fetched[0].id);
+      } catch (err) {
+        console.error('[Results] Error cargando grupos:', err);
+      } finally {
+        setLoadingGroups(false);
+      }
+    };
+    fetchGroups();
+  }, [user?.id]);
+
+  // Cargar intentos + estudiantes cuando cambia el grupo seleccionado
+  useEffect(() => {
+    if (!selectedGroupId) { setAttempts([]); setStudents([]); return; }
+    const fetchData = async () => {
+      try {
+        setLoadingAttempts(true);
+        // Traemos intentos y matrículas en paralelo para resolver nombres
+        const [attemptsRes, enrollRes] = await Promise.all([
+          academicApi.getGroupAttempts(selectedGroupId),
+          academicApi.getGroupEnrollments(selectedGroupId),
+        ]);
+        setAttempts(attemptsRes.data.data);
+        setStudents(enrollRes.data.data);
+      } catch (err) {
+        console.error('[Results] Error cargando datos del grupo:', err);
+        setAttempts([]);
+        setStudents([]);
+      } finally {
+        setLoadingAttempts(false);
+      }
+    };
+    fetchData();
+  }, [selectedGroupId]);
+
+  // Lookup rápido para resolver student_id → nombre
+  const studentMap = new Map(students.map(s => [s.id, s]));
+
+  const selectOptions = groups.map(g => ({ id: g.id, description: g.name }));
+
+  if (loadingGroups) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -35,52 +89,59 @@ export default function TeacherResultsScreen() {
         </View>
       </View>
 
-      <FlatList
-        data={attempts}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={() => (
-          <View style={styles.empty}>
-            <Ionicons name="document-text-outline" size={48} color={Colors.window} />
-            <Text style={styles.emptyText}>No hay evaluaciones registradas aún.</Text>
-          </View>
-        )}
-        renderItem={({ item }) => {
-          const student = getUserById(item.student_id);
-          const ova = getOvaById(item.ova_id);
-          const passed = item.passed;
-          const color = passed ? Colors.success : Colors.error;
-
-          return (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.studentName}>{student?.full_name}</Text>
-                  <Text style={styles.ovaName}>{ova?.title}</Text>
-                </View>
-                <View style={[styles.scoreBadge, { backgroundColor: color + '15' }]}>
-                  <Text style={[styles.scoreText, { color }]}>{item.score}/100</Text>
-                </View>
-              </View>
-              <View style={styles.cardFooter}>
-                <Text style={styles.dateText}>
-                   Presentado el: {new Date(item.submitted_at).toLocaleDateString('es-CO')}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name={passed ? "checkmark-circle" : "close-circle"} size={16} color={color} />
-                  <Text style={[styles.statusText, { color }]}>{passed ? 'Aprobado' : 'Reprobado'}</Text>
-                </View>
-              </View>
+      {loadingAttempts ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={attempts}
+          keyExtractor={(item) => item.attempt_id.toString()}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={() => (
+            <View style={styles.empty}>
+              <Ionicons name="document-text-outline" size={48} color={Colors.window} />
+              <Text style={styles.emptyText}>No hay evaluaciones registradas aún.</Text>
             </View>
-          );
-        }}
-      />
+          )}
+          renderItem={({ item }) => {
+            const passed = item.passed;
+            const color = passed ? Colors.success : Colors.error;
+            // Resolvemos nombre del estudiante con el mapa de matrículas
+            const student = studentMap.get(item.student_id);
+
+            return (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.studentName}>{student?.full_name ?? `Estudiante #${item.student_id}`}</Text>
+                    <Text style={styles.ovaName}>Examen #{item.exam_id}</Text>
+                  </View>
+                  <View style={[styles.scoreBadge, { backgroundColor: color + '15' }]}>
+                    <Text style={[styles.scoreText, { color }]}>{item.score}/100</Text>
+                  </View>
+                </View>
+                <View style={styles.cardFooter}>
+                  <Text style={styles.dateText}>
+                     Presentado el: {new Date(item.submitted_at).toLocaleDateString('es-CO')}
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name={passed ? "checkmark-circle" : "close-circle"} size={16} color={color} />
+                    <Text style={[styles.statusText, { color }]}>{passed ? 'Aprobado' : 'Reprobado'}</Text>
+                  </View>
+                </View>
+              </View>
+            );
+          }}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { padding: 24, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.window },
   title: { fontSize: 24, fontWeight: '700', color: Colors.dark },
   subtitle: { fontSize: 14, color: Colors.gray, marginTop: 4 },

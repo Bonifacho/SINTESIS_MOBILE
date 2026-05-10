@@ -1,18 +1,72 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
-import { useMockDB } from '@/src/store/mockDB';
+import { academicApi } from '@/src/api/academic';
 import { Ionicons } from '@expo/vector-icons';
+import type { AcademicGroup, EnrolledStudent } from '@/src/models/academic';
 
 export default function TeacherGroupsScreen() {
-  const router = useRouter(); // <-- Agregamos el enrutador
+  const router = useRouter();
   const { user } = useAuthStore();
-  const getGroupsByTeacher = useMockDB((s) => s.getGroupsByTeacher);
-  const getStudentsByGroup = useMockDB((s) => s.getStudentsByGroup);
-  
-  const myGroups = getGroupsByTeacher(user?.id || 0);
+
+  const [groups, setGroups] = useState<AcademicGroup[]>([]);
+  const [studentCounts, setStudentCounts] = useState<Record<number, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await academicApi.getUserGroups(user.id);
+        const fetchedGroups: AcademicGroup[] = res.data.data;
+        setGroups(fetchedGroups);
+
+        // Obtener conteo de estudiantes por grupo en paralelo
+        const counts: Record<number, number> = {};
+        await Promise.all(
+          fetchedGroups.map(async (g) => {
+            try {
+              const enrollRes = await academicApi.getGroupEnrollments(g.id);
+              counts[g.id] = (enrollRes.data.data as EnrolledStudent[]).length;
+            } catch {
+              counts[g.id] = 0;
+            }
+          })
+        );
+        setStudentCounts(counts);
+      } catch (err) {
+        console.error('[TeacherHome] Error cargando grupos:', err);
+        setError('No se pudieron cargar tus grupos.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user?.id]);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="cloud-offline-outline" size={48} color={Colors.error} />
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -22,16 +76,21 @@ export default function TeacherGroupsScreen() {
       </View>
       
       <FlatList
-        data={myGroups}
+        data={groups}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={{ padding: 16, gap: 16 }}
+        ListEmptyComponent={() => (
+          <View style={styles.centered}>
+            <Ionicons name="folder-open-outline" size={48} color={Colors.gray} />
+            <Text style={styles.emptyText}>No tienes grupos asignados.</Text>
+          </View>
+        )}
         renderItem={({ item }) => {
-          const studentCount = getStudentsByGroup(item.id).length;
+          const studentCount = studentCounts[item.id] ?? 0;
           return (
             <TouchableOpacity 
               style={styles.card} 
               activeOpacity={0.8}
-              // <-- AQUÍ LA MAGIA: Navegamos a la pestaña de estudiantes y le pasamos el ID
               onPress={() => router.push({ pathname: '/(teacher)/students', params: { preselectedGroup: item.id } })}
             >
               <View style={styles.cardHeader}>
@@ -53,6 +112,9 @@ export default function TeacherGroupsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  errorText: { fontSize: 15, color: Colors.error, textAlign: 'center', paddingHorizontal: 24 },
+  emptyText: { fontSize: 15, color: Colors.gray, fontStyle: 'italic' },
   header: { padding: 24, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.window },
   title: { fontSize: 24, fontWeight: 'bold', color: Colors.dark, marginBottom: 4 },
   subtitle: { fontSize: 14, color: Colors.gray },
