@@ -1,25 +1,22 @@
 import { Redirect } from 'expo-router';
-import { useAuthStore } from '@/src/store/authStore';
+import { useAuthStore } from '../src/store/authStore';
 import { View, ActivityIndicator } from 'react-native';
-import { Colors } from '@/src/theme/colors';
+import { Colors } from '../src/theme/colors';
 
 export default function Index() {
-  const { user, isLoading } = useAuthStore();
+  const { user, token } = useAuthStore();
 
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
-        <ActivityIndicator color={Colors.primary} size="large" />
-      </View>
-    );
-  }
-
-  if (!user) {
+  if (!token || !user) {
     return <Redirect href="/(auth)/login" />;
   }
 
+  // EL ENRUTAMIENTO CORREGIDO:
   if (user.role === 'docente') {
     return <Redirect href="/(teacher)" />;
+  }
+  
+  if (user.role === 'practicante') { // <-- ¡ESTO ES LO QUE TE VA A SALVAR!
+    return <Redirect href="/(trainee)" />;
   }
 
   return <Redirect href="/(student)" />;

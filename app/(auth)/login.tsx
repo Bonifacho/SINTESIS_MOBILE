@@ -1,43 +1,66 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuthStore } from '@/src/store/authStore';
-import { authApi } from '@/src/api/auth'; // <-- IMPORTAMOS LA API REAL
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { authApi } from '@/src/api/auth';
 import { Colors } from '@/src/theme/colors';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuthStore } from '@/src/store/authStore';
+
+const loginSchema = z.object({
+  username: z
+    .string({ error: 'Usuario requerido.' })
+    .trim()
+    .min(3, 'El usuario debe tener al menos 3 caracteres.')
+    .max(50, 'El usuario no puede superar 50 caracteres.'),
+  password: z
+    .string({ error: 'Contraseña requerida.' })
+    .min(4, 'La contraseña debe tener al menos 4 caracteres.')
+    .max(128, 'La contraseña no puede superar 128 caracteres.'),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginScreen() {
-  const router   = useRouter();
-  const setAuth  = useAuthStore((s) => s.setAuth);
+  const router = useRouter();
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const [submitLoading, setSubmitLoading] = useState(false);
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading,  setLoading]  = useState(false);
-  const [showPass, setShowPass] = useState(false);
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isValid },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: '',
+      password: '',
+    },
+    mode: 'onChange',
+  });
 
-  const handleLogin = async () => {
-    if (!username.trim() || !password.trim()) {
-      Alert.alert('Campos requeridos', 'Ingresa tu usuario y contraseña.');
-      return;
-    }
-
-    setLoading(true);
-
+  const onSubmit = async (values: LoginFormValues) => {
+    setSubmitLoading(true);
     try {
-      // 1. Llamada HTTP real al backend Flask
       const response = await authApi.login({
-        username: username.trim(),
-        password: password
+        username: values.username.trim(),
+        password: values.password,
       });
 
-      // 2. Guardar sesión en SecureStore y Zustand
-      await setAuth(response.user, response.access_token);
+      // Hidrata el store con los datos de sesión (persist middleware escribe en SecureStore)
+      setAuth(response.user, response.access_token, response.refresh_token);
 
-      // 3. Navegación basada en el rol real que devuelve la base de datos
       if (response.user.role === 'docente') {
         router.replace('/(teacher)');
       } else if (response.user.role === 'practicante') {
@@ -45,18 +68,17 @@ export default function LoginScreen() {
       } else {
         router.replace('/(student)');
       }
-      
     } catch (error: any) {
-      console.error("Error en login:", error);
-      
-      // Manejo de errores específicos del backend
-      if (error.response?.status === 401) {
+      if (error?.response?.status === 401) {
         Alert.alert('Acceso denegado', 'Usuario o contraseña incorrectos.');
       } else {
-        Alert.alert('Error de conexión', 'No se pudo conectar con el servidor. Verifica tu red o que la API de Python esté corriendo.');
+        Alert.alert(
+          'Error de conexión',
+          'No se pudo conectar con el servidor. Verifica la red o la API Flask.'
+        );
       }
     } finally {
-      setLoading(false);
+      setSubmitLoading(false);
     }
   };
 
@@ -64,86 +86,180 @@ export default function LoginScreen() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
     >
-      <View style={styles.card}>
+      <ScrollView
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.card}>
+          <Text style={styles.title}>SÍNTESIS</Text>
 
-        <View style={styles.logoBox}>
-          <IconSymbol name="lock.shield.fill" size={56} color={Colors.primary} />
-          <Text style={styles.appName}>SÍNTESIS</Text>
-          <Text style={styles.appSub}>Portal Académico</Text>
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Usuario</Text>
-          <View style={styles.inputRow}>
-            <IconSymbol name="person.fill" size={18} color={Colors.gray} />
-            <TextInput
-              style={styles.input}
-              placeholder="Ingresa tu usuario"
-              placeholderTextColor={Colors.gray}
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
+          <View style={styles.field}>
+            <Text style={styles.label}>Usuario</Text>
+            <Controller
+              control={control}
+              name="username"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.username ? styles.inputError : null]}
+                  placeholder="Ingresa tu usuario"
+                  placeholderTextColor={Colors.gray}
+                  value={value}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!submitLoading}
+                />
+              )}
             />
+            {errors.username ? <Text style={styles.errorText}>{errors.username.message}</Text> : null}
           </View>
-        </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Contraseña</Text>
-          <View style={styles.inputRow}>
-            <IconSymbol name="lock.fill" size={18} color={Colors.gray} />
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              placeholderTextColor={Colors.gray}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPass}
-              editable={!loading}
+          <View style={styles.field}>
+            <Text style={styles.label}>Contraseña</Text>
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.password ? styles.inputError : null]}
+                  placeholder="Ingresa tu contraseña"
+                  placeholderTextColor={Colors.gray}
+                  value={value}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!submitLoading}
+                />
+              )}
             />
-            <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-              <IconSymbol
-                name={showPass ? 'eye.slash.fill' : 'eye.fill'}
-                size={18}
-                color={Colors.gray}
-              />
-            </TouchableOpacity>
+            {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
           </View>
+
+          <TouchableOpacity
+            style={styles.linkButton}
+            onPress={() => router.push('/(auth)/forgot-password' as never)}
+            disabled={submitLoading}
+          >
+            <Text style={styles.linkText}>¿Olvidaste tu contraseña?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.primaryButton, !isValid || submitLoading ? styles.primaryButtonDisabled : null]}
+            onPress={handleSubmit(onSubmit)}
+            disabled={!isValid || submitLoading}
+          >
+            <Text style={styles.primaryButtonText}>
+              {submitLoading ? 'Ingresando...' : 'Ingresar'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.registerLink}
+            onPress={() => router.push('/(auth)/register' as never)}
+          >
+            <Text style={styles.registerLinkText}>
+              ¿No tienes cuenta?{' '}
+              <Text style={styles.registerLinkHighlight}>Regístrate aquí</Text>
+            </Text>
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={[styles.btn, loading && styles.btnDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.btnText}>Ingresar</Text>
-          }
-        </TouchableOpacity>
-
-        <Text style={styles.footer}>
-          Conectando a servidor: {process.env.EXPO_PUBLIC_API_URL}
-        </Text>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.primary, justifyContent: 'center', padding: 24 },
-  card: { backgroundColor: Colors.surface, borderRadius: 20, padding: 28 },
-  logoBox: { alignItems: 'center', marginBottom: 24 },
-  appName: { fontSize: 28, fontWeight: '800', color: Colors.primary, marginTop: 10, letterSpacing: 2 },
-  appSub: { fontSize: 13, color: Colors.gray, marginTop: 4 },
-  field: { marginBottom: 16 },
-  label: { fontSize: 12, fontWeight: '700', color: Colors.gray, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background, borderRadius: 12, borderWidth: 1, borderColor: Colors.window, paddingHorizontal: 14, height: 52, gap: 10 },
-  input: { flex: 1, fontSize: 15, color: Colors.dark },
-  btn: { backgroundColor: Colors.primary, borderRadius: 12, height: 52, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  footer: { textAlign: 'center', fontSize: 11, color: Colors.gray, marginTop: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  contentContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
+    paddingBottom: 28,
+  },
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 28,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: Colors.window,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: Colors.primary,
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  field: {
+    marginBottom: 14,
+  },
+  label: {
+    color: Colors.dark,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  input: {
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 1,
+    borderColor: Colors.window,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 18,
+    color: Colors.dark,
+    fontSize: 15,
+  },
+  inputError: {
+    borderColor: Colors.error,
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: 12,
+    marginTop: 6,
+  },
+  linkButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 16,
+  },
+  linkText: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  primaryButton: {
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: Colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonDisabled: {
+    opacity: 0.6,
+  },
+  primaryButtonText: {
+    color: Colors.dark,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  registerLink: {
+    marginTop: 18,
+    alignItems: 'center',
+  },
+  registerLinkText: {
+    color: Colors.gray,
+    fontSize: 14,
+  },
+  registerLinkHighlight: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
 });
