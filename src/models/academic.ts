@@ -1,7 +1,10 @@
 // src/models/academic.ts
+
+// ── Dominio: Grupos y Temas ──────────────────────────────────────────────────
 export interface AcademicGroup {
   id: number;
   name: string;
+  description?: string;   // Descripción del grupo (ej. "Fundamentos de química")
   teacher_id: number;
   is_active?: boolean;
 }
@@ -14,6 +17,7 @@ export interface AcademicTopic {
   is_active?: boolean;
 }
 
+// ── Dominio: OVAs y Recursos ─────────────────────────────────────────────────
 export interface OVAResource {
   id: number;
   resource_type: 'pdf' | 'video' | 'link' | 'text';
@@ -33,6 +37,27 @@ export interface AcademicOva {
   resources: OVAResource[];
 }
 
+// ── Dominio: Exámenes y Preguntas ────────────────────────────────────────────
+export interface ExamOption {
+  id: number;
+  text: string;
+}
+
+export interface ExamQuestion {
+  id: number;
+  statement: string;
+  options: ExamOption[];
+  points: number;
+}
+
+export interface Exam {
+  id: number;
+  ova_id: number;
+  title: string;
+  questions: ExamQuestion[];
+}
+
+// ── Dominio: Intentos y Resultados ───────────────────────────────────────────
 export interface ExamAttempt {
   attempt_id: number;
   exam_id: number;
@@ -43,4 +68,11 @@ export interface ExamAttempt {
   total_questions: number;
   passing_score: number;
   submitted_at: string;
+}
+
+// ── Dominio: Matrículas ──────────────────────────────────────────────────────
+export interface EnrolledStudent {
+  id: number;
+  username: string;
+  full_name: string;
 }
