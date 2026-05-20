@@ -13,6 +13,8 @@ export interface User {
   full_name: string;
   email: string;   // Rúbrica §2.2: nombre, correo, rol en el store
   role: Role;
+  document_id?: string;  // Cédula / documento de identidad
+  created_at?: string;   // Fecha de registro (ISO string)
 }
 
 interface AuthState {

@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Toast from 'react-native-toast-message';
 import { authApi } from '@/src/api/auth';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
@@ -58,6 +59,18 @@ export default function LoginScreen() {
         password: values.password,
       });
 
+      // Guard RBAC: Los administradores no tienen acceso a la app móvil
+      const userRole = response.user.role as string;
+      if (userRole === 'administrador' || userRole === 'admin') {
+        Toast.show({
+          type: 'error',
+          text1: 'Acceso restringido',
+          text2: 'Los administradores deben acceder desde la web.',
+          position: 'bottom',
+        });
+        return;
+      }
+
       // Hidrata el store con los datos de sesión (persist middleware escribe en SecureStore)
       setAuth(response.user, response.access_token, response.refresh_token);
 
@@ -70,12 +83,19 @@ export default function LoginScreen() {
       }
     } catch (error: any) {
       if (error?.response?.status === 401) {
-        Alert.alert('Acceso denegado', 'Usuario o contraseña incorrectos.');
+        Toast.show({
+          type: 'error',
+          text1: 'Acceso denegado',
+          text2: 'Usuario o contraseña incorrectos.',
+          position: 'bottom',
+        });
       } else {
-        Alert.alert(
-          'Error de conexión',
-          'No se pudo conectar con el servidor. Verifica la red o la API Flask.'
-        );
+        Toast.show({
+          type: 'error',
+          text1: 'Error de conexión',
+          text2: 'No se pudo conectar con el servidor.',
+          position: 'bottom',
+        });
       }
     } finally {
       setSubmitLoading(false);
@@ -159,14 +179,20 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
 
+          {/* Divider visual estándar de la industria */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>o</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* CTA secundario — botón outlined (Gutenberg Diagram compliant) */}
           <TouchableOpacity
-            style={styles.registerLink}
+            style={styles.registerButton}
             onPress={() => router.push('/(auth)/register' as never)}
+            disabled={submitLoading}
           >
-            <Text style={styles.registerLinkText}>
-              ¿No tienes cuenta?{' '}
-              <Text style={styles.registerLinkHighlight}>Regístrate aquí</Text>
-            </Text>
+            <Text style={styles.registerButtonText}>Crear una cuenta</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -250,16 +276,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  registerLink: {
-    marginTop: 18,
+  dividerContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginVertical: 18,
   },
-  registerLinkText: {
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.window,
+  },
+  dividerText: {
+    paddingHorizontal: 14,
     color: Colors.gray,
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '500',
   },
-  registerLinkHighlight: {
+  registerButton: {
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  registerButtonText: {
     color: Colors.primary,
+    fontSize: 16,
     fontWeight: '700',
   },
 });

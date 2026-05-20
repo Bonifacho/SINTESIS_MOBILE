@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Toast from 'react-native-toast-message';
 import apiClient from '../../src/api/client';
 import { Colors } from '../../src/theme/colors';
 
@@ -39,7 +40,9 @@ const registerSchema = z.object({
   documentId: z
     .string({ error: 'Documento requerido.' })
     .trim()
-    .min(5, 'Documento inválido.'),
+    .min(5, 'El documento debe tener al menos 5 dígitos.')
+    .max(15, 'El documento no puede superar 15 dígitos.')
+    .regex(/^\d+$/, 'El documento solo debe contener números.'),
   username: z
     .string({ error: 'Usuario requerido.' })
     .trim()
@@ -90,18 +93,26 @@ export default function RegisterScreen() {
 
       await apiClient.post<RegisterResponse>('/api/v1/security/register', payload);
 
-      Alert.alert('Registro exitoso', 'Tu cuenta fue creada correctamente.');
+      Toast.show({
+        type: 'success',
+        text1: 'Registro exitoso',
+        text2: 'Tu cuenta fue creada correctamente.',
+        position: 'bottom',
+      });
       router.replace('/(auth)/login');
     } catch (error: any) {
       const apiMessage: string | undefined =
         error?.response?.data?.message ?? error?.response?.data?.error;
       const apiStatus: number | undefined = error?.response?.status;
-      Alert.alert(
-        'Error de registro',
-        apiMessage
+      
+      Toast.show({
+        type: 'error',
+        text1: 'Error de registro',
+        text2: apiMessage
           ? `(${apiStatus ?? 'sin-codigo'}) ${apiMessage}`
-          : 'No fue posible completar el registro. Verifica los datos e intenta nuevamente.'
-      );
+          : 'Verifica los datos e intenta nuevamente.',
+        position: 'bottom',
+      });
     } finally {
       setSubmitLoading(false);
     }
@@ -168,11 +179,13 @@ export default function RegisterScreen() {
             render={({ field: { onChange, onBlur, value } }) => (
               <TextInput
                 style={[styles.input, errors.documentId ? styles.inputError : null]}
-                placeholder="Ingresa tu documento"
+                placeholder="Solo números (ej: 1072099991)"
                 placeholderTextColor={Colors.gray}
                 value={value}
                 onBlur={onBlur}
-                onChangeText={onChange}
+                onChangeText={(text) => onChange(text.replace(/[^0-9]/g, ''))}
+                keyboardType="numeric"
+                maxLength={15}
               />
             )}
           />
