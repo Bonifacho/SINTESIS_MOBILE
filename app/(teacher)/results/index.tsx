@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
 import { academicApi } from '@/src/api/academic';
 import { Ionicons } from '@expo/vector-icons';
 import SearchableSelect from '@/src/components/ui/searchableSelect';
+import PaginatedList from '@/src/components/ui/PaginatedList';
+import { generateAndSharePDF } from '@/src/utils/pdfExport';
 import type { AcademicGroup, ExamAttempt, EnrolledStudent } from '@/src/models/academic';
 
 export default function TeacherResultsScreen() {
@@ -61,7 +63,24 @@ export default function TeacherResultsScreen() {
   }, [selectedGroupId]);
 
   // Lookup rápido para resolver student_id → nombre
-  const studentMap = new Map(students.map(s => [s.id, s]));
+  const studentMap = useMemo(
+    () => new Map(students.map(s => [s.id, s])),
+    [students]
+  );
+
+  // ── Métricas macro del grupo (Rúbrica §6) ─────────────────────────────────
+  const groupMetrics = useMemo(() => {
+    if (attempts.length === 0) return null;
+    const totalAttempts = attempts.length;
+    const passedAttempts = attempts.filter(a => a.passed).length;
+    const failedAttempts = totalAttempts - passedAttempts;
+    const avgScore = Math.round(attempts.reduce((sum, a) => sum + a.score, 0) / totalAttempts);
+    const highestScore = Math.max(...attempts.map(a => a.score));
+    const lowestScore = Math.min(...attempts.map(a => a.score));
+    const passRate = Math.round((passedAttempts / totalAttempts) * 100);
+
+    return { totalAttempts, passedAttempts, failedAttempts, avgScore, highestScore, lowestScore, passRate };
+  }, [attempts]);
 
   const selectOptions = groups.map(g => ({ id: g.id, description: g.name }));
 
@@ -76,8 +95,49 @@ export default function TeacherResultsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Auditoría de Evaluaciones</Text>
-        <Text style={styles.subtitle}>Monitorea el rendimiento de tus estudiantes.</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Auditoría de Evaluaciones</Text>
+            <Text style={styles.subtitle}>Monitorea el rendimiento de tus estudiantes.</Text>
+          </View>
+          {groupMetrics && (
+            <TouchableOpacity
+              style={styles.exportBtn}
+              onPress={async () => {
+                try {
+                  const groupName = groups.find(g => g.id === selectedGroupId)?.name ?? 'Grupo';
+                  await generateAndSharePDF({
+                    title: `Reporte: ${groupName}`,
+                    subtitle: 'Auditoría de evaluaciones del grupo',
+                    generatedBy: user?.full_name ?? 'Docente',
+                    metrics: [
+                      { label: 'Total Intentos', value: groupMetrics.totalAttempts },
+                      { label: 'Tasa Aprobación', value: `${groupMetrics.passRate}%`, color: Colors.success },
+                      { label: 'Promedio', value: groupMetrics.avgScore, color: Colors.primary },
+                      { label: 'Nota Más Alta', value: groupMetrics.highestScore, color: Colors.success },
+                      { label: 'Nota Más Baja', value: groupMetrics.lowestScore, color: Colors.error },
+                      { label: 'Reprobados', value: groupMetrics.failedAttempts, color: Colors.error },
+                    ],
+                    attempts: attempts.map(a => ({
+                      examId: a.exam_id,
+                      studentName: studentMap.get(a.student_id)?.full_name ?? `Estudiante #${a.student_id}`,
+                      score: a.score,
+                      passed: a.passed,
+                      correct: a.correct_answers,
+                      total: a.total_questions,
+                      date: new Date(a.submitted_at).toLocaleDateString('es-CO'),
+                    })),
+                  });
+                } catch (err) {
+                  Alert.alert('Error', 'No se pudo generar el PDF.');
+                }
+              }}
+            >
+              <Ionicons name="download-outline" size={18} color={Colors.surface} />
+              <Text style={styles.exportBtnText}>PDF</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <View style={{ marginTop: 16 }}>
           <SearchableSelect
@@ -94,16 +154,50 @@ export default function TeacherResultsScreen() {
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       ) : (
-        <FlatList
+        <PaginatedList
           data={attempts}
           keyExtractor={(item) => item.attempt_id.toString()}
+          pageSize={10}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={() => (
+          ListHeaderComponent={
+            groupMetrics ? (
+              <View style={styles.metricsCard}>
+                <Text style={styles.metricsTitle}>Resumen del Grupo</Text>
+                <View style={styles.metricsGrid}>
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricValue}>{groupMetrics.totalAttempts}</Text>
+                    <Text style={styles.metricLabel}>Intentos</Text>
+                  </View>
+                  <View style={styles.metricItem}>
+                    <Text style={[styles.metricValue, { color: Colors.success }]}>{groupMetrics.passRate}%</Text>
+                    <Text style={styles.metricLabel}>Aprobación</Text>
+                  </View>
+                  <View style={styles.metricItem}>
+                    <Text style={[styles.metricValue, { color: Colors.primary }]}>{groupMetrics.avgScore}</Text>
+                    <Text style={styles.metricLabel}>Promedio</Text>
+                  </View>
+                  <View style={styles.metricItem}>
+                    <Text style={[styles.metricValue, { color: Colors.success }]}>{groupMetrics.highestScore}</Text>
+                    <Text style={styles.metricLabel}>Más alta</Text>
+                  </View>
+                  <View style={styles.metricItem}>
+                    <Text style={[styles.metricValue, { color: Colors.error }]}>{groupMetrics.lowestScore}</Text>
+                    <Text style={styles.metricLabel}>Más baja</Text>
+                  </View>
+                  <View style={styles.metricItem}>
+                    <Text style={[styles.metricValue, { color: Colors.error }]}>{groupMetrics.failedAttempts}</Text>
+                    <Text style={styles.metricLabel}>Reprobados</Text>
+                  </View>
+                </View>
+              </View>
+            ) : undefined
+          }
+          ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="document-text-outline" size={48} color={Colors.window} />
               <Text style={styles.emptyText}>No hay evaluaciones registradas aún.</Text>
             </View>
-          )}
+          }
           renderItem={({ item }) => {
             const passed = item.passed;
             const color = passed ? Colors.success : Colors.error;
@@ -148,6 +242,14 @@ const styles = StyleSheet.create({
   list: { padding: 16, gap: 12 },
   empty: { alignItems: 'center', marginTop: 60 },
   emptyText: { fontSize: 16, color: Colors.gray, marginTop: 12, fontStyle: 'italic' },
+  // ── Métricas ──
+  metricsCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, marginBottom: 8, borderWidth: 1, borderColor: Colors.window, elevation: 2 },
+  metricsTitle: { fontSize: 16, fontWeight: '700', color: Colors.dark, marginBottom: 16 },
+  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 0 },
+  metricItem: { width: '33%', alignItems: 'center', paddingVertical: 10 },
+  metricValue: { fontSize: 24, fontWeight: '800', color: Colors.dark },
+  metricLabel: { fontSize: 11, color: Colors.gray, marginTop: 2, fontWeight: '500' },
+  // ── Cards de intentos ──
   card: { backgroundColor: Colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: Colors.window },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
   studentName: { fontSize: 16, fontWeight: '700', color: Colors.dark },
@@ -157,4 +259,7 @@ const styles = StyleSheet.create({
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.window },
   dateText: { fontSize: 12, color: Colors.gray },
   statusText: { fontSize: 13, fontWeight: '600' },
+  // ── Export ──
+  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
+  exportBtnText: { color: Colors.surface, fontSize: 13, fontWeight: '700' },
 });

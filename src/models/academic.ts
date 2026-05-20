@@ -58,6 +58,16 @@ export interface Exam {
 }
 
 // ── Dominio: Intentos y Resultados ───────────────────────────────────────────
+export interface QuestionResult {
+  question_id: number;
+  statement: string;
+  selected_option_id: number;
+  selected_option_text: string;
+  correct_option_id: number;
+  correct_option_text: string;
+  is_correct: boolean;
+}
+
 export interface ExamAttempt {
   attempt_id: number;
   exam_id: number;
@@ -68,6 +78,8 @@ export interface ExamAttempt {
   total_questions: number;
   passing_score: number;
   submitted_at: string;
+  /** Retroalimentación pregunta por pregunta (solo en detalle de intento) */
+  question_results?: QuestionResult[];
 }
 
 // ── Dominio: Matrículas ──────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/src/theme/colors';
 import { academicApi } from '@/src/api/academic';
-import type { ExamAttempt } from '@/src/models/academic';
+import type { ExamAttempt, QuestionResult } from '@/src/models/academic';
 
 export default function ExamResultScreen() {
   const router      = useRouter();
@@ -24,6 +24,7 @@ export default function ExamResultScreen() {
         setLoading(true);
         setError(null);
         const res = await academicApi.getAttemptResult(Number(attemptId));
+        console.log('[Result] Backend response:', JSON.stringify(res.data.data, null, 2));
         setAttempt(res.data.data);
       } catch (err) {
         console.error('[Result] Error cargando resultado:', err);
@@ -64,6 +65,7 @@ export default function ExamResultScreen() {
   const accentColor = passed ? Colors.success : Colors.error;
   const icon        = passed ? 'checkmark-circle' : 'close-circle';
   const label       = passed ? '¡Aprobado!' : 'No aprobado';
+  const feedback    = attempt.question_results ?? [];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.body}>
@@ -134,6 +136,85 @@ export default function ExamResultScreen() {
         </View>
       </View>
 
+      {/* ── RETROALIMENTACIÓN POR PREGUNTA ────────────────────────────────────── */}
+      {feedback.length > 0 && (
+        <View style={styles.feedbackSection}>
+          <Text style={styles.feedbackTitle}>Retroalimentación</Text>
+          <Text style={styles.feedbackSubtitle}>
+            Revisa en qué preguntas acertaste y en cuáles te equivocaste.
+          </Text>
+
+          {feedback.map((q: QuestionResult, index: number) => (
+            <View
+              key={q.question_id}
+              style={[
+                styles.questionCard,
+                { borderLeftColor: q.is_correct ? Colors.success : Colors.error },
+              ]}
+            >
+              {/* Header de la pregunta */}
+              <View style={styles.questionHeader}>
+                <View style={[
+                  styles.questionBadge,
+                  { backgroundColor: (q.is_correct ? Colors.success : Colors.error) + '15' },
+                ]}>
+                  <Ionicons
+                    name={q.is_correct ? 'checkmark-circle' : 'close-circle'}
+                    size={16}
+                    color={q.is_correct ? Colors.success : Colors.error}
+                  />
+                  <Text style={[
+                    styles.questionBadgeText,
+                    { color: q.is_correct ? Colors.success : Colors.error },
+                  ]}>
+                    {q.is_correct ? 'Correcta' : 'Incorrecta'}
+                  </Text>
+                </View>
+                <Text style={styles.questionNumber}>#{index + 1}</Text>
+              </View>
+
+              {/* Enunciado */}
+              <Text style={styles.questionStatement}>{q.statement}</Text>
+
+              {/* Tu respuesta */}
+              <View style={styles.answerRow}>
+                <Text style={styles.answerLabel}>Tu respuesta:</Text>
+                <View style={[
+                  styles.answerPill,
+                  {
+                    backgroundColor: q.is_correct ? Colors.success + '12' : Colors.error + '12',
+                    borderColor: q.is_correct ? Colors.success + '30' : Colors.error + '30',
+                  },
+                ]}>
+                  <Text style={[
+                    styles.answerText,
+                    { color: q.is_correct ? Colors.success : Colors.error },
+                  ]}>
+                    {q.selected_option_text}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Respuesta correcta (solo si la del estudiante fue incorrecta) */}
+              {!q.is_correct && (
+                <View style={styles.answerRow}>
+                  <Text style={styles.answerLabel}>Correcta:</Text>
+                  <View style={[styles.answerPill, {
+                    backgroundColor: Colors.success + '12',
+                    borderColor: Colors.success + '30',
+                  }]}>
+                    <Ionicons name="checkmark" size={14} color={Colors.success} />
+                    <Text style={[styles.answerText, { color: Colors.success }]}>
+                      {q.correct_option_text}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* Mensaje motivacional */}
       <View style={[styles.motivCard, { backgroundColor: accentColor + '12' }]}>
         <Text style={[styles.motivText, { color: accentColor }]}>
@@ -198,6 +279,29 @@ const styles = StyleSheet.create({
   detailLabel:    { flex: 1, fontSize: 14, color: Colors.gray },
   detailValue:    { fontSize: 15, fontWeight: '700', color: Colors.dark },
   divider:        { height: 1, backgroundColor: Colors.window },
+  // ── Feedback ──
+  feedbackSection: { gap: 12 },
+  feedbackTitle:   { fontSize: 18, fontWeight: '800', color: Colors.dark },
+  feedbackSubtitle:{ fontSize: 13, color: Colors.gray, marginBottom: 4 },
+  questionCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.window,
+    borderLeftWidth: 4,
+    gap: 12,
+  },
+  questionHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  questionBadge:   { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  questionBadgeText: { fontSize: 12, fontWeight: '700' },
+  questionNumber:  { fontSize: 13, fontWeight: '700', color: Colors.gray },
+  questionStatement: { fontSize: 15, fontWeight: '600', color: Colors.dark, lineHeight: 22 },
+  answerRow:       { gap: 6 },
+  answerLabel:     { fontSize: 12, fontWeight: '600', color: Colors.gray },
+  answerPill:      { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, alignSelf: 'flex-start' },
+  answerText:      { fontSize: 14, fontWeight: '600' },
+  // ── Bottom ──
   motivCard:      { borderRadius: 12, padding: 16 },
   motivText:      { fontSize: 14, fontWeight: '600', lineHeight: 20, textAlign: 'center' },
   primaryBtn: {

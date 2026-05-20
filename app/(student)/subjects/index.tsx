@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,27 +15,37 @@ export default function SubjectsScreen() {
 
   const [groups, setGroups] = useState<AcademicGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
+  const fetchGroups = async () => {
     if (!user?.id) return;
-
-    const fetchGroups = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    try {
+      setError(null);
         const res = await academicApi.getUserGroups(user.id);
         setGroups(res.data.data);
       } catch (err) {
         console.error('[Subjects] Error cargando materias:', err);
         setError('No se pudieron cargar tus materias.');
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchGroups();
+  useEffect(() => {
+    setLoading(true);
+    fetchGroups().finally(() => setLoading(false));
   }, [user?.id]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchGroups();
+    setRefreshing(false);
+  };
+
+  const filteredGroups = groups.filter(g => 
+    g.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (g.description || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -50,6 +60,9 @@ export default function SubjectsScreen() {
       <View style={styles.centered}>
         <Ionicons name="cloud-offline-outline" size={48} color={Colors.error} />
         <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={fetchGroups}>
+          <Text style={styles.retryBtnText}>Reintentar conexión</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -61,11 +74,31 @@ export default function SubjectsScreen() {
         <Text style={styles.subtitle}>
           Selecciona una materia para acceder a su contenido interactivo.
         </Text>
+        
+        {/* Buscador Local */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={Colors.gray} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar por nombre o descripción..."
+            placeholderTextColor={Colors.gray}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={Colors.gray} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <FlatList
-        data={groups}
+        data={filteredGroups}
         keyExtractor={(item) => String(item.id)}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+        }
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={() => (
@@ -109,9 +142,16 @@ const styles = StyleSheet.create({
   container:  { flex: 1, backgroundColor: Colors.background },
   centered:   { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   errorText:  { fontSize: 15, color: Colors.error, textAlign: 'center', paddingHorizontal: 24 },
+  retryBtn:   { marginTop: 12, backgroundColor: Colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
+  retryBtnText: { color: Colors.surface, fontSize: 14, fontWeight: 'bold' },
   header:     { padding: 24, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.window },
   title:      { fontSize: 24, fontWeight: 'bold', color: Colors.dark, marginBottom: 4 },
-  subtitle:   { fontSize: 14, color: Colors.gray, lineHeight: 20 },
+  subtitle:   { fontSize: 14, color: Colors.gray, lineHeight: 20, marginBottom: 16 },
+  searchContainer: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background,
+    borderRadius: 12, paddingHorizontal: 12, height: 44, borderWidth: 1, borderColor: Colors.window,
+  },
+  searchInput: { flex: 1, marginLeft: 8, fontSize: 15, color: Colors.dark },
   list:       { padding: 16, gap: 14 },
   empty:      { alignItems: 'center', paddingTop: 60, gap: 12 },
   emptyText:  { fontSize: 15, color: Colors.gray, fontStyle: 'italic' },

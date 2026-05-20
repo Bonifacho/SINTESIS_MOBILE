@@ -4,6 +4,7 @@ import {
   ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
@@ -100,7 +101,12 @@ export default function ExamScreen() {
 
   const handleNext = () => {
     if (!isAnswered) {
-      Alert.alert('Atención', 'Debes elegir una opción antes de continuar.');
+      Toast.show({
+        type: 'info',
+        text1: 'Falta respuesta',
+        text2: 'Debes elegir una opción antes de continuar.',
+        position: 'bottom',
+      });
       return;
     }
     setCurrentIndex((prev) => (prev < totalQ - 1 ? prev + 1 : prev));
@@ -112,7 +118,12 @@ export default function ExamScreen() {
 
   const handleSubmit = async () => {
     if (!isAnswered) {
-      Alert.alert('Atención', 'Selecciona una respuesta para la última pregunta.');
+      Toast.show({
+        type: 'info',
+        text1: 'Falta respuesta',
+        text2: 'Selecciona una respuesta para la última pregunta.',
+        position: 'bottom',
+      });
       return;
     }
     Alert.alert(
@@ -141,9 +152,15 @@ export default function ExamScreen() {
 
               // 3. Navegar al resultado
               router.replace(`/(student)/ovas/exam/result/${attemptId}` as any);
-            } catch (err) {
-              console.error('[Exam] Error enviando examen:', err);
-              Alert.alert('Error', 'No se pudo enviar el examen. Intenta de nuevo.');
+            } catch (err: any) {
+              const backendError = err?.response?.data?.error || 'No se pudo enviar el examen. Intenta de nuevo.';
+              console.error('[Exam] Error enviando examen:', err?.response?.data || err);
+              Toast.show({
+                type: 'error',
+                text1: 'Error del servidor',
+                text2: backendError,
+                position: 'bottom',
+              });
             } finally {
               setSubmitting(false);
             }

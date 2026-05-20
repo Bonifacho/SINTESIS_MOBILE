@@ -5,7 +5,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/src/theme/colors';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { WebView } from 'react-native-webview';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -30,9 +30,19 @@ export default function VideoPlayerScreen() {
   const router = useRouter();
   const { url, title } = useLocalSearchParams<{ url: string; title: string }>();
 
-  const videoRef = useRef<Video>(null);
+  const videoRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+
+  const youtubeId = getYouTubeId(url || '');
+  const useNativePlayer = isDirectVideoUrl(url || '');
+
+  // Inicializar reproductor de video nativo con expo-video
+  const player = useVideoPlayer(useNativePlayer ? url : null, (p) => {
+    p.loop = false;
+    p.play();
+    setIsLoading(false); // expo-video es rápido, podemos asumir carga inicial al instanciar
+  });
 
   if (!url) {
     return (
@@ -45,9 +55,6 @@ export default function VideoPlayerScreen() {
       </View>
     );
   }
-
-  const youtubeId = getYouTubeId(url);
-  const useNativePlayer = isDirectVideoUrl(url);
 
   // HTML embebido para YouTube — más confiable que cargar la URL embed directamente en WebView
   const youtubeHtml = youtubeId ? `
@@ -71,11 +78,6 @@ export default function VideoPlayerScreen() {
     </html>
   ` : null;
 
-  const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (status.isLoaded) {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -107,19 +109,12 @@ export default function VideoPlayerScreen() {
         )}
 
         {!hasError && useNativePlayer && (
-          <Video
+          <VideoView
             ref={videoRef}
-            source={{ uri: url }}
             style={styles.videoPlayer}
-            useNativeControls
-            resizeMode={ResizeMode.CONTAIN}
-            shouldPlay
-            onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-            onError={(err) => {
-              console.error('[VideoPlayer] Error expo-av:', err);
-              setIsLoading(false);
-              setHasError(true);
-            }}
+            player={player}
+            allowsFullscreen
+            allowsPictureInPicture
           />
         )}
 
