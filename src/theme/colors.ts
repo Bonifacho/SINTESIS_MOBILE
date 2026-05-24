@@ -1,25 +1,48 @@
-// Ruta: constants/Colors.ts
+// src/theme/colors.ts
+// Paleta dinámica con soporte para tema claro y oscuro.
+// Importar `getColors(isDark)` en componentes que reaccionen al tema.
+// Importar `Colors` (alias del tema claro) en archivos que aún no implementan el tema dinámico.
 
-export const Colors = {
-  // --- Identidad y Enfoque Pedagógico ---
-  primary: '#4F46E5',    // Indigo (Botón principal, transmite rigor académico y concentración)
-  secondary: '#F59E0B',  // Ámbar/Naranja (Llamados a la acción pedagógica, como "Iniciar Módulo", resalta sin distraer)
-  
-  // --- Ergonomía Cognitiva y Legibilidad ---
-  dark: '#0F172A',       // Azul marino oscuro (Texto principal, alta legibilidad para lectura prolongada de teoría)
-  light: '#F1F5F9',      // Gris azulado suave (Separadores de secciones de contenido y fondos inactivos)
-  gray: '#64748B',       // Gris pizarra (Textos de apoyo, metadatos académicos como fechas o autores)
-  
-  // --- Retroalimentación Semántica (Evaluaciones y Sistema) ---
-  success: '#10B981',    // Verde esmeralda (Retroalimentación positiva en pruebas, creación de registros)
-  warning: '#FBBF24',    // Amarillo cálido (Alertas preventivas, confirmaciones antes de modificar datos)
-  error: '#EF4444',      // Rojo suave (Retroalimentación correctiva en evaluaciones, prevención de errores)
-  info: '#0EA5E9',       // Azul cielo (Información complementaria, tooltips pedagógicos y guías de uso)
-  
-  // --- Estructura de la Interfaz (Capas de Lectura) ---
-  background: '#F8FAFC', // Gris extra claro (Fondo base, diseñado para evitar la fatiga visual del blanco puro)
-  surface: '#FFFFFF',    // Blanco puro (Contraste exclusivo para tarjetas de contenido y áreas de evaluación)
-  window: '#E2E8F0'      // Tono de contraste suave (Para ventanas modales de confirmación o lectura superpuesta)
+// ── Tema Claro ────────────────────────────────────────────────────────────────
+const LightColors = {
+  primary:    '#4F46E5',   // Indigo — botones principales, rigor académico
+  secondary:  '#F59E0B',   // Ámbar — llamados a la acción pedagógica
+  dark:       '#0F172A',   // Azul marino oscuro — texto principal
+  light:      '#F1F5F9',   // Gris azulado — separadores de sección
+  gray:       '#64748B',   // Gris pizarra — metadatos y textos secundarios
+  success:    '#10B981',   // Verde esmeralda — retroalimentación positiva
+  warning:    '#FBBF24',   // Amarillo — alertas preventivas
+  error:      '#EF4444',   // Rojo suave — errores y retroalimentación correctiva
+  info:       '#0EA5E9',   // Azul cielo — información y módulo practicante
+  background: '#F8FAFC',   // Fondo base — evita fatiga visual
+  surface:    '#FFFFFF',   // Superficies de tarjetas
+  window:     '#E2E8F0',   // Bordes y separadores suaves
 } as const;
 
-export type ColorTheme = typeof Colors;
+// ── Tema Oscuro ───────────────────────────────────────────────────────────────
+const DarkColors = {
+  primary:    '#6366F1',   // Indigo más claro — mayor contraste en oscuro
+  secondary:  '#FBBF24',   // Ámbar más brillante
+  dark:       '#F1F5F9',   // Texto principal claro (invertido)
+  light:      '#1E293B',   // Separadores oscuros
+  gray:       '#94A3B8',   // Textos secundarios más claros
+  success:    '#34D399',   // Verde más brillante en oscuro
+  warning:    '#FCD34D',   // Amarillo más brillante
+  error:      '#F87171',   // Rojo más brillante
+  info:       '#38BDF8',   // Azul más brillante
+  background: '#0F172A',   // Fondo oscuro profundo
+  surface:    '#1E293B',   // Superficies de tarjetas oscuras
+  window:     '#334155',   // Bordes sutiles en oscuro
+} as const;
+
+// ── Función dinámica ───────────────────────────────────────────────────────────
+/** Devuelve la paleta correcta según el tema activo. Úsala con `useThemeStore`. */
+export function getColors(isDark: boolean) {
+  return isDark ? DarkColors : LightColors;
+}
+
+// ── Alias estático (compatibilidad hacia atrás) ────────────────────────────────
+/** Paleta del tema claro. Para componentes sin soporte dinámico de tema aún. */
+export const Colors = LightColors;
+
+export type ColorTheme = typeof LightColors;
