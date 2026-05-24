@@ -1,3 +1,4 @@
+import { useThemeStore } from '@/src/store/themeStore';
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -8,6 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import type { AcademicGroup, EnrolledStudent } from '@/src/models/academic';
 
 export default function TeacherGroupsScreen() {
+  const isDark = useThemeStore((s) => s.isDark);
+  const styles = makeStyles(isDark);
   const router = useRouter();
   const { user } = useAuthStore();
 
@@ -97,7 +100,6 @@ export default function TeacherGroupsScreen() {
                 <Ionicons name="folder-open" size={24} color={Colors.primary} />
                 <Text style={styles.cardTitle}>{item.name}</Text>
               </View>
-              <Text style={styles.cardDesc}>{item.description}</Text>
               <View style={styles.cardFooter}>
                 <Text style={styles.studentCount}>{studentCount} Estudiantes inscritos</Text>
                 <Ionicons name="chevron-forward" size={20} color={Colors.gray} />
@@ -110,18 +112,18 @@ export default function TeacherGroupsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const makeStyles = (isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: isDark ? '#121212' : Colors.background },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   errorText: { fontSize: 15, color: Colors.error, textAlign: 'center', paddingHorizontal: 24 },
-  emptyText: { fontSize: 15, color: Colors.gray, fontStyle: 'italic' },
-  header: { padding: 24, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.window },
-  title: { fontSize: 24, fontWeight: 'bold', color: Colors.dark, marginBottom: 4 },
-  subtitle: { fontSize: 14, color: Colors.gray },
-  card: { backgroundColor: Colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: Colors.window, elevation: 2 },
+  emptyText: { fontSize: 15, color: isDark ? '#AAAAAA' : Colors.gray, fontStyle: 'italic' },
+  header: { padding: 24, backgroundColor: isDark ? '#1E1E1E' : Colors.surface, borderBottomWidth: 1, borderBottomColor: isDark ? '#2C2C2C' : Colors.window },
+  title: { fontSize: 24, fontWeight: 'bold', color: isDark ? '#FFFFFF' : Colors.dark, marginBottom: 4 },
+  subtitle: { fontSize: 14, color: isDark ? '#AAAAAA' : Colors.gray },
+  card: { backgroundColor: isDark ? '#1E1E1E' : Colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: isDark ? '#2C2C2C' : Colors.window, elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 10 },
-  cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.dark },
-  cardDesc: { fontSize: 14, color: Colors.gray, marginBottom: 16, lineHeight: 20 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: Colors.window, paddingTop: 12 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', color: isDark ? '#FFFFFF' : Colors.dark },
+  cardDesc: { fontSize: 14, color: isDark ? '#AAAAAA' : Colors.gray, marginBottom: 16, lineHeight: 20 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: isDark ? '#2C2C2C' : Colors.window, paddingTop: 12 },
   studentCount: { fontSize: 13, fontWeight: '600', color: Colors.secondary }
 });
