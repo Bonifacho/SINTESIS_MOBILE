@@ -1,3 +1,4 @@
+import { useThemeStore } from '@/src/store/themeStore';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
@@ -12,6 +13,8 @@ import { academicApi } from '@/src/api/academic';
 import type { Exam, ExamQuestion } from '@/src/models/academic';
 
 export default function ExamScreen() {
+  const isDark = useThemeStore((s) => s.isDark);
+  const styles = makeStyles(isDark);
   const router  = useRouter();
   const user    = useAuthStore((s) => s.user);
   const { ovaId } = useLocalSearchParams<{ ovaId: string }>();
@@ -30,6 +33,9 @@ export default function ExamScreen() {
   // ── Cargar examen desde la API ──────────────────────────────────────────────
   useEffect(() => {
     if (!ovaId) return;
+
+    setCurrentIndex(0);
+    setAnswers({});
 
     const fetchExam = async () => {
       try {
@@ -74,8 +80,8 @@ export default function ExamScreen() {
       <View style={styles.centered}>
         <Ionicons name="alert-circle-outline" size={52} color={Colors.warning} />
         <Text style={styles.errorText}>{error ?? 'Examen no disponible.'}</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(student)/subjects')}>
-          <Text style={styles.backBtnText}>Volver a Materias</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Text style={styles.backBtnText}>Volver</Text>
         </TouchableOpacity>
       </View>
     );
@@ -173,7 +179,7 @@ export default function ExamScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/(student)/subjects')} style={styles.closeBtn}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
           <Ionicons name="close" size={26} color={Colors.gray} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -241,31 +247,31 @@ export default function ExamScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container:           { flex: 1, backgroundColor: Colors.background },
+const makeStyles = (isDark: boolean) => StyleSheet.create({
+  container:           { flex: 1, backgroundColor: isDark ? '#121212' : Colors.background },
   centered:            { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
-  loadingText:         { fontSize: 14, color: Colors.gray },
-  errorText:           { fontSize: 16, color: Colors.gray, textAlign: 'center' },
+  loadingText:         { fontSize: 14, color: isDark ? '#AAAAAA' : Colors.gray },
+  errorText:           { fontSize: 16, color: isDark ? '#AAAAAA' : Colors.gray, textAlign: 'center' },
   backBtn:             { backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
   backBtnText:         { color: '#fff', fontWeight: '700' },
-  header:              { flexDirection: 'row', alignItems: 'center', padding: 16, paddingTop: 48, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.window, gap: 12 },
+  header:              { flexDirection: 'row', alignItems: 'center', padding: 16, paddingTop: 48, backgroundColor: isDark ? '#1E1E1E' : Colors.surface, borderBottomWidth: 1, borderBottomColor: isDark ? '#2C2C2C' : Colors.window, gap: 12 },
   closeBtn:            { padding: 4 },
-  examTitle:           { fontSize: 16, fontWeight: '700', color: Colors.dark },
-  examSub:             { fontSize: 13, color: Colors.gray, marginTop: 2 },
+  examTitle:           { fontSize: 16, fontWeight: '700', color: isDark ? '#FFFFFF' : Colors.dark },
+  examSub:             { fontSize: 13, color: isDark ? '#AAAAAA' : Colors.gray, marginTop: 2 },
   progressTrack:       { height: 4, backgroundColor: Colors.window },
   progressFill:        { height: 4, backgroundColor: Colors.primary, borderRadius: 2 },
   body:                { padding: 20, gap: 12 },
-  questionCard:        { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: Colors.window, marginBottom: 8 },
-  questionText:        { fontSize: 17, fontWeight: '600', color: Colors.dark, lineHeight: 26 },
-  option:              { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: Colors.surface, borderRadius: 12, padding: 16, borderWidth: 1.5, borderColor: Colors.window },
+  questionCard:        { backgroundColor: isDark ? '#1E1E1E' : Colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: isDark ? '#2C2C2C' : Colors.window, marginBottom: 8 },
+  questionText:        { fontSize: 17, fontWeight: '600', color: isDark ? '#FFFFFF' : Colors.dark, lineHeight: 26 },
+  option:              { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: isDark ? '#1E1E1E' : Colors.surface, borderRadius: 12, padding: 16, borderWidth: 1.5, borderColor: isDark ? '#2C2C2C' : Colors.window },
   optionSelected:      { borderColor: Colors.primary, backgroundColor: Colors.primary + '0A' },
   optionCircle:        { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: Colors.gray, justifyContent: 'center', alignItems: 'center' },
   optionCircleSelected:{ borderColor: Colors.primary, backgroundColor: Colors.primary },
-  optionText:          { flex: 1, fontSize: 15, color: Colors.dark },
+  optionText:          { flex: 1, fontSize: 15, color: isDark ? '#FFFFFF' : Colors.dark },
   optionTextSelected:  { color: Colors.primary, fontWeight: '600' },
-  footer:              { flexDirection: 'row', justifyContent: 'space-between', padding: 16, paddingBottom: 28, backgroundColor: Colors.surface, borderTopWidth: 1, borderTopColor: Colors.window },
+  footer:              { flexDirection: 'row', justifyContent: 'space-between', padding: 16, paddingBottom: 28, backgroundColor: isDark ? '#1E1E1E' : Colors.surface, borderTopWidth: 1, borderTopColor: isDark ? '#2C2C2C' : Colors.window },
   actionBtnSecondary:  { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.window, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16 },
-  actionBtnSecondaryText:{ color: Colors.dark, fontSize: 15, fontWeight: '600' },
+  actionBtnSecondaryText:{ color: isDark ? '#FFFFFF' : Colors.dark, fontSize: 15, fontWeight: '600' },
   actionBtn:           { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20 },
   actionBtnDisabled:   { opacity: 0.4 },
   actionBtnText:       { color: '#fff', fontSize: 15, fontWeight: '700' },
