@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import apiClient from '@/src/api/client';
 import { Colors } from '@/src/theme/colors';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function ForgotPasswordScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [devToken, setDevToken] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const requestReset = async () => {
     if (!identifier.trim()) {
@@ -81,17 +83,30 @@ export default function ForgotPasswordScreen() {
         ) : (
           <>
             <Text style={styles.label}>Nueva Contraseña</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Escribe tu nueva contraseña"
-              placeholderTextColor={Colors.gray}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
+            <View style={{ justifyContent: 'center' }}>
+              <TextInput
+                style={[styles.input, { paddingRight: 48 }]}
+                placeholder="Escribe tu nueva contraseña"
+                placeholderTextColor={Colors.gray}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
+              <TouchableOpacity
+                style={{ position: 'absolute', right: 16, height: '100%', justifyContent: 'center' }}
+                onPress={() => setShowPassword(!showPassword)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={Colors.gray}
+                />
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity style={styles.primaryButton} onPress={confirmReset} disabled={loading}>
               {loading ? <ActivityIndicator color={Colors.dark} /> : <Text style={styles.primaryButtonText}>Guardar contraseña</Text>}

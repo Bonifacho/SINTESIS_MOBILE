@@ -15,6 +15,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Toast from 'react-native-toast-message';
+import { Ionicons } from '@expo/vector-icons';
 import { authApi } from '@/src/api/auth';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
@@ -37,6 +38,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     control,
@@ -144,18 +146,27 @@ export default function LoginScreen() {
               control={control}
               name="password"
               render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={[styles.input, errors.password ? styles.inputError : null]}
-                  placeholder="Ingresa tu contraseña"
-                  placeholderTextColor={Colors.gray}
-                  value={value}
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!submitLoading}
-                />
+                <View style={{ justifyContent: 'center' }}>
+                  <TextInput
+                    style={[styles.input, errors.password ? styles.inputError : null, { paddingRight: 48 }]}
+                    placeholder="Ingresa tu contraseña"
+                    placeholderTextColor={Colors.gray}
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!submitLoading}
+                  />
+                  <TouchableOpacity
+                    style={{ position: 'absolute', right: 16, height: '100%', justifyContent: 'center' }}
+                    onPress={() => setShowPassword(!showPassword)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={Colors.gray} />
+                  </TouchableOpacity>
+                </View>
               )}
             />
             {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
