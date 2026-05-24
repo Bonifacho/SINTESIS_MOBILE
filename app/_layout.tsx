@@ -48,9 +48,9 @@ export default function RootLayout() {
       
       {/* Grupos de rutas (carpetas con paréntesis) */}
       <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
-      <Stack.Screen name="(student)" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="(teacher)" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="(trainee)" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="(student)" options={{ animation: 'slide_from_right', gestureEnabled: false }} />
+      <Stack.Screen name="(teacher)" options={{ animation: 'slide_from_right', gestureEnabled: false }} />
+      <Stack.Screen name="(trainee)" options={{ animation: 'slide_from_right', gestureEnabled: false }} />
       
       {/* Pantalla de error 404 */}
       <Stack.Screen name="+not-found" options={{ title: '¡Ups!' }} />

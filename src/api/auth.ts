@@ -12,7 +12,10 @@ interface BackendLoginResponse {
   user: {
     user_id: number;
     username: string;
-    email?: string;       // Preparado para cuando el backend lo devuelva
+    full_name: string;
+    email?: string;
+    document_id?: string;
+    created_at?: string;
     roles: string[];
   };
 }
@@ -26,6 +29,8 @@ export interface AuthResponse {
     username: string;
     full_name: string;
     email: string;
+    document_id?: string;
+    created_at?: string;
     role: 'docente' | 'estudiante' | 'practicante';
   };
 }
@@ -45,8 +50,10 @@ export const authApi = {
       user: {
         id:        raw.user.user_id,
         username:  raw.user.username,
-        full_name: raw.user.username, // el backend no devuelve full_name en login
-        email:     raw.user.email ?? '', // preparado para cuando el backend lo incluya
+        full_name: raw.user.full_name || raw.user.username,
+        email:     raw.user.email ?? '',
+        document_id: raw.user.document_id ?? '',
+        created_at: raw.user.created_at ?? '',
         role:      (raw.user.roles[0] ?? 'estudiante') as AuthResponse['user']['role'],
       },
     };

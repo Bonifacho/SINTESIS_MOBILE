@@ -10,12 +10,12 @@ export default function Index() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  // EL ENRUTAMIENTO CORREGIDO:
+
   if (user.role === 'docente') {
     return <Redirect href="/(teacher)" />;
   }
   
-  if (user.role === 'practicante') { // <-- ¡ESTO ES LO QUE TE VA A SALVAR!
+  if (user.role === 'practicante') {
     return <Redirect href="/(trainee)" />;
   }
 
