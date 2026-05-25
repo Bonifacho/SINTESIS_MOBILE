@@ -77,6 +77,7 @@ export default function PaginatedList<T>({
   if (data.length === 0) {
     return (
       <FlatList
+        style={{ flex: 1 }}
         data={[]}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
@@ -92,13 +93,67 @@ export default function PaginatedList<T>({
     );
   }
 
+  const renderFooter = () => {
+    if (totalPages <= 1) return null;
+    return (
+      <View style={styles.paginationBar}>
+        <TouchableOpacity
+          style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
+          onPress={goToPrev}
+          disabled={currentPage === 1}
+        >
+          <Ionicons
+            name="chevron-back"
+            size={18}
+            color={currentPage === 1 ? Colors.window : Colors.primary}
+          />
+          <Text
+            style={[
+              styles.pageBtnText,
+              currentPage === 1 && styles.pageBtnTextDisabled,
+            ]}
+          >
+            Anterior
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.pageIndicator}>
+          <Text style={styles.pageNumber}>{currentPage}</Text>
+          <Text style={styles.pageTotal}> de {totalPages}</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
+          onPress={goToNext}
+          disabled={currentPage === totalPages}
+        >
+          <Text
+            style={[
+              styles.pageBtnText,
+              currentPage === totalPages && styles.pageBtnTextDisabled,
+            ]}
+          >
+            Siguiente
+          </Text>
+          <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={currentPage === totalPages ? Colors.window : Colors.primary}
+          />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.wrapper}>
       <FlatList
+        style={{ flex: 1 }}
         data={pageData}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         ListHeaderComponent={ListHeaderComponent}
+        ListFooterComponent={renderFooter}
         contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -107,62 +162,6 @@ export default function PaginatedList<T>({
           ) : undefined
         }
       />
-
-      {/* Controles de paginación */}
-      {totalPages > 1 && (
-        <View style={styles.paginationBar}>
-          <TouchableOpacity
-            style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
-            onPress={goToPrev}
-            disabled={currentPage === 1}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={18}
-              color={currentPage === 1 ? Colors.window : Colors.primary}
-            />
-            <Text
-              style={[
-                styles.pageBtnText,
-                currentPage === 1 && styles.pageBtnTextDisabled,
-              ]}
-            >
-              Anterior
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.pageIndicator}>
-            <Text style={styles.pageNumber}>{currentPage}</Text>
-            <Text style={styles.pageTotal}> de {totalPages}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
-            onPress={goToNext}
-            disabled={currentPage === totalPages}
-          >
-            <Text
-              style={[
-                styles.pageBtnText,
-                currentPage === totalPages && styles.pageBtnTextDisabled,
-              ]}
-            >
-              Siguiente
-            </Text>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={currentPage === totalPages ? Colors.window : Colors.primary}
-            />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Info contextual de registros */}
-      <Text style={styles.recordsInfo}>
-        Mostrando {(currentPage - 1) * pageSize + 1}–
-        {Math.min(currentPage * pageSize, data.length)} de {data.length} registros
-      </Text>
     </View>
   );
 }
@@ -175,11 +174,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: Colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: Colors.window,
+    paddingVertical: 16,
+    marginTop: 16,
   },
   pageBtn: {
     flexDirection: 'row',
@@ -214,12 +210,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.gray,
     fontWeight: '500',
-  },
-  recordsInfo: {
-    textAlign: 'center',
-    fontSize: 11,
-    color: Colors.gray,
-    paddingVertical: 6,
-    backgroundColor: Colors.surface,
   },
 });
