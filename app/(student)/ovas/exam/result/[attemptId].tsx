@@ -1,3 +1,4 @@
+import { useThemeStore } from '@/src/store/themeStore';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
@@ -9,6 +10,8 @@ import { academicApi } from '@/src/api/academic';
 import type { ExamAttempt, QuestionResult } from '@/src/models/academic';
 
 export default function ExamResultScreen() {
+  const isDark = useThemeStore((s) => s.isDark);
+  const styles = makeStyles(isDark);
   const router      = useRouter();
   const { attemptId } = useLocalSearchParams<{ attemptId: string }>();
 
@@ -53,9 +56,9 @@ export default function ExamResultScreen() {
         <Text style={styles.errorText}>{error ?? 'No se encontró el resultado.'}</Text>
         <TouchableOpacity
           style={styles.primaryBtn}
-          onPress={() => router.replace('/(student)/subjects' as any)}
+          onPress={() => router.back()}
         >
-          <Text style={styles.primaryBtnText}>Ir a Materias</Text>
+          <Text style={styles.primaryBtnText}>Volver</Text>
         </TouchableOpacity>
       </View>
     );
@@ -227,10 +230,10 @@ export default function ExamResultScreen() {
       {/* Acciones */}
       <TouchableOpacity
         style={styles.primaryBtn}
-        onPress={() => router.replace('/(student)/subjects' as any)}
+        onPress={() => router.back()}
       >
         <Ionicons name="arrow-back" size={18} color="#fff" />
-        <Text style={styles.primaryBtnText}>Volver a Materias</Text>
+        <Text style={styles.primaryBtnText}>Volver a la Unidad</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -244,14 +247,14 @@ export default function ExamResultScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container:      { flex: 1, backgroundColor: Colors.background },
+const makeStyles = (isDark: boolean) => StyleSheet.create({
+  container:      { flex: 1, backgroundColor: isDark ? '#121212' : Colors.background },
   body:           { padding: 20, gap: 16, paddingBottom: 40 },
   centered:       { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
-  loadingText:    { fontSize: 14, color: Colors.gray },
-  errorText:      { fontSize: 16, color: Colors.gray, textAlign: 'center' },
+  loadingText:    { fontSize: 14, color: isDark ? '#AAAAAA' : Colors.gray },
+  errorText:      { fontSize: 16, color: isDark ? '#AAAAAA' : Colors.gray, textAlign: 'center' },
   resultCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: isDark ? '#1E1E1E' : Colors.surface,
     borderRadius: 20,
     padding: 32,
     alignItems: 'center',
@@ -264,41 +267,41 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
   resultLabel:    { fontSize: 26, fontWeight: '800' },
-  ovaName:        { fontSize: 14, color: Colors.gray, textAlign: 'center', marginBottom: 8 },
+  ovaName:        { fontSize: 14, color: isDark ? '#AAAAAA' : Colors.gray, textAlign: 'center', marginBottom: 8 },
   scoreCircle: {
     width: 110, height: 110, borderRadius: 55,
     borderWidth: 5, justifyContent: 'center', alignItems: 'center',
     marginTop: 8,
   },
   scoreNumber:    { fontSize: 38, fontWeight: '900' },
-  scoreUnit:      { fontSize: 13, color: Colors.gray, marginTop: -4 },
-  detailCard:     { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Colors.window },
-  detailTitle:    { fontSize: 15, fontWeight: '700', color: Colors.dark, marginBottom: 12 },
+  scoreUnit:      { fontSize: 13, color: isDark ? '#AAAAAA' : Colors.gray, marginTop: -4 },
+  detailCard:     { backgroundColor: isDark ? '#1E1E1E' : Colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: isDark ? '#2C2C2C' : Colors.window },
+  detailTitle:    { fontSize: 15, fontWeight: '700', color: isDark ? '#FFFFFF' : Colors.dark, marginBottom: 12 },
   detailRow:      { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 12 },
   detailIcon:     { width: 28, alignItems: 'center' },
-  detailLabel:    { flex: 1, fontSize: 14, color: Colors.gray },
-  detailValue:    { fontSize: 15, fontWeight: '700', color: Colors.dark },
+  detailLabel:    { flex: 1, fontSize: 14, color: isDark ? '#AAAAAA' : Colors.gray },
+  detailValue:    { fontSize: 15, fontWeight: '700', color: isDark ? '#FFFFFF' : Colors.dark },
   divider:        { height: 1, backgroundColor: Colors.window },
   // ── Feedback ──
   feedbackSection: { gap: 12 },
-  feedbackTitle:   { fontSize: 18, fontWeight: '800', color: Colors.dark },
-  feedbackSubtitle:{ fontSize: 13, color: Colors.gray, marginBottom: 4 },
+  feedbackTitle:   { fontSize: 18, fontWeight: '800', color: isDark ? '#FFFFFF' : Colors.dark },
+  feedbackSubtitle:{ fontSize: 13, color: isDark ? '#AAAAAA' : Colors.gray, marginBottom: 4 },
   questionCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: isDark ? '#1E1E1E' : Colors.surface,
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: Colors.window,
+    borderColor: isDark ? '#2C2C2C' : Colors.window,
     borderLeftWidth: 4,
     gap: 12,
   },
   questionHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   questionBadge:   { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   questionBadgeText: { fontSize: 12, fontWeight: '700' },
-  questionNumber:  { fontSize: 13, fontWeight: '700', color: Colors.gray },
-  questionStatement: { fontSize: 15, fontWeight: '600', color: Colors.dark, lineHeight: 22 },
+  questionNumber:  { fontSize: 13, fontWeight: '700', color: isDark ? '#AAAAAA' : Colors.gray },
+  questionStatement: { fontSize: 15, fontWeight: '600', color: isDark ? '#FFFFFF' : Colors.dark, lineHeight: 22 },
   answerRow:       { gap: 6 },
-  answerLabel:     { fontSize: 12, fontWeight: '600', color: Colors.gray },
+  answerLabel:     { fontSize: 12, fontWeight: '600', color: isDark ? '#AAAAAA' : Colors.gray },
   answerPill:      { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, alignSelf: 'flex-start' },
   answerText:      { fontSize: 14, fontWeight: '600' },
   // ── Bottom ──
@@ -309,6 +312,6 @@ const styles = StyleSheet.create({
     gap: 8, backgroundColor: Colors.primary, borderRadius: 14, padding: 16,
   },
   primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  secondaryBtn:   { borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: Colors.window },
-  secondaryBtnText: { fontSize: 15, fontWeight: '600', color: Colors.gray },
+  secondaryBtn:   { borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: isDark ? '#2C2C2C' : Colors.window },
+  secondaryBtnText: { fontSize: 15, fontWeight: '600', color: isDark ? '#AAAAAA' : Colors.gray },
 });

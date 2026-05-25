@@ -1,17 +1,20 @@
+// app/(student)/_layout.tsx
 import { Tabs } from 'expo-router';
-import { Colors } from '@/src/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { useColors } from '@/src/hooks/useColors';
 
 export default function StudentLayout() {
+  const C = useColors();
   return (
     <Tabs
+      backBehavior="history"
       screenOptions={{
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.gray,
-        tabBarStyle: { backgroundColor: Colors.surface, borderTopColor: Colors.window, borderTopWidth: 1, height: 64, paddingBottom: 10, paddingTop: 6 },
+        tabBarActiveTintColor: C.primary,
+        tabBarInactiveTintColor: C.gray,
+        tabBarStyle: { backgroundColor: C.surface, borderTopColor: C.window, borderTopWidth: 1, height: 64, paddingBottom: 10, paddingTop: 6 },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        headerStyle: { backgroundColor: Colors.primary },
-        headerTintColor: Colors.surface,
+        headerStyle: { backgroundColor: C.primary },
+        headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: 'bold' },
       }}
     >
@@ -20,36 +23,9 @@ export default function StudentLayout() {
       <Tabs.Screen name="subjects/index" options={{ title: 'Materias', tabBarIcon: ({ color, size }) => <Ionicons name="book" size={size} color={color} /> }} />
       <Tabs.Screen name="progress/index" options={{ title: 'Progreso', tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart" size={size} color={color} /> }} />
       <Tabs.Screen name="profile/index" options={{ title: 'Perfil', tabBarIcon: ({ color, size }) => <Ionicons name="person-circle" size={size} color={color} /> }} />
-      
+
       {/* 🔴 RUTAS OCULTAS (Dinámicas y Sub-niveles) */}
-      <Tabs.Screen 
-        name="ovas/index" 
-        options={{ href: null, headerShown: false }} 
-      />
-      <Tabs.Screen 
-        name="ovas/exam/[ovaId]" 
-        options={{ 
-          href: null,               // Lo esconde del Tab Bar
-          headerShown: false,       // Esconde el título feo de la ruta
-          tabBarStyle: { display: 'none' } // ¡Oculta toda la barra para MODO ENFOQUE de examen!
-        }} 
-      />
-      <Tabs.Screen 
-        name="ovas/exam/result/[attemptId]" 
-        options={{ 
-          href: null, 
-          headerShown: false,
-          tabBarStyle: { display: 'none' } // Mantiene la inmersión en el resultado
-        }} 
-      />
-      <Tabs.Screen 
-        name="ovas/video/[id]" 
-        options={{ 
-          href: null,                       // Oculta del Tab Bar
-          headerShown: false,               // Sin header para reproductor inmersivo
-          tabBarStyle: { display: 'none' }  // Sin barra inferior durante la reproducción
-        }} 
-      />
+      <Tabs.Screen name="ovas" options={{ href: null, headerShown: false, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }
