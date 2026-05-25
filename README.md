@@ -1,7 +1,7 @@
 # 📱 SÍNTESIS - Frontend Móvil (LMS React Native)
 
 <div align="center">
-  <img src="https://img.shields.io/badge/Estado-MVP_Terminado-success" alt="Estado MVP" />
+  <img src="https://img.shields.io/badge/Estado-PRODUCCI%C3%93N_MVP-success" alt="Estado MVP" />
   <img src="https://img.shields.io/badge/React_Native-Expo_SDK_52-000000?logo=react" alt="React Native Expo" />
   <img src="https://img.shields.io/badge/TypeScript-Estricto-3178C6?logo=typescript" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Zustand-Estado_Global-orange" alt="Zustand" />
@@ -18,19 +18,18 @@
 1. [Características Principales](#-características-principales)
 2. [Arquitectura de Roles (RBAC)](#-arquitectura-de-roles-rbac)
 3. [Stack Tecnológico](#-stack-tecnológico)
-4. [Estructura del Proyecto](#-estructura-del-proyecto)
-5. [Identidad Visual y Ergonomía](#-identidad-visual-y-ergonomía)
-6. [Seguridad y Red](#-seguridad-y-red)
-7. [Instalación y Configuración](#-instalación-y-configuración)
+4. [Estructura del Proyecto y Navegación](#-estructura-del-proyecto-y-navegación)
+5. [Seguridad y Red](#-seguridad-y-red)
+6. [Instalación y Uso Local](#-instalación-y-uso-local)
 
 ---
 
 ## 🚀 Características Principales
 
-* **Consumo de OVAs Interactivos:** Interfaz optimizada para renderizar Objetos Virtuales de Aprendizaje sin distracciones.
-* **Evaluación Automatizada:** El sistema descarga la carga operativa del docente calculando métricas y resultados desde el backend.
-* **Navegación Aislada:** Rutas completamente protegidas e independientes basadas en el rol del usuario autenticado.
-* **Diseño Anti-Fatiga:** Paleta de colores científicamente seleccionada para reducir la carga cognitiva en sesiones prolongadas.
+* **Consumo de OVAs Interactivos:** Interfaz optimizada para renderizar Objetos Virtuales de Aprendizaje y material audiovisual sin distracciones, utilizando Stacks anidados para preservar el contexto de navegación.
+* **Evaluación Automatizada:** El sistema descarga la carga operativa del docente calculando métricas y resultados desde el backend en tiempo real.
+* **Navegación Aislada (Guards):** Rutas completamente protegidas e independientes basadas en el rol del usuario autenticado y su Token JWT.
+* **Sistema de Diseño Centralizado:** Implementación del hook `useColors` para garantizar consistencia visual total en toda la aplicación, reduciendo la fatiga visual.
 
 ---
 
@@ -42,7 +41,7 @@ El sistema maneja tres universos de navegación a través de `expo-router`, gara
 | :--- | :--- | :--- |
 | **Estudiante** | `app/(student)` | Exploración de materias, consumo de OVAs, evaluación interactiva y métricas de progreso personal. |
 | **Docente** | `app/(teacher)` | Panel de administración, gestión de grupos asignados, auditoría de resultados y seguimiento del alumnado. |
-| **Trainee** | `app/(trainee)` | *Rol de Solo Lectura.* Diseñado para docentes practicantes. Permite observar métricas y dinámicas de grupo para investigación pedagógica sin riesgo de alterar la base de datos. |
+| **Trainee** | `app/(trainee)` | *Rol de Solo Lectura.* Diseñado para practicantes. Permite observar métricas para investigación pedagógica **sin riesgo** de alterar la base de datos gracias a bloqueos a nivel de red. |
 
 ---
 
@@ -50,34 +49,60 @@ El sistema maneja tres universos de navegación a través de `expo-router`, gara
 
 Este proyecto implementa los estándares más altos de desarrollo móvil actual:
 
-* **Core UI:** React Native + Expo (Arquitectura basada en archivos).
-* **Navegación:** Expo Router (Tabs y Stacks anidados).
-* **Gestión de Estado:** Zustand (Ligero, rápido y libre de boilerplate).
-* **Capa de Red:** Axios (Configurado con Interceptores globales).
-* **Almacenamiento Seguro:** Expo Secure Store (Bóveda nativa de iOS/Android para JWT).
-* **Tipado Estricto:** TypeScript (Modelos reflejados directamente del Entidad-Relación).
+* **Core UI:** React Native + Expo (Arquitectura basada en archivos y `expo-router`).
+* **Gestión de Estado Persistente:** Zustand con middlewares (`AsyncStorage` / `expo-secure-store`) para mantener sesiones vivas.
+* **Capa de Red HTTP:** Axios con Interceptores globales para inyección de JWT y manejo de errores 401.
+* **Componentes UI Dinámicos:** Integración de reproductores de Video, renderizadores PDF, y Toast Notifications no intrusivas.
 
 ---
 
-## 📂 Estructura del Proyecto
+## 📂 Estructura del Proyecto y Navegación
 
-El código fuente sigue los principios de **Clean Architecture**, separando la UI de la lógica de negocio:
+El código fuente sigue los principios de **Clean Architecture**, separando la UI de la lógica de negocio, y utiliza una sofisticada combinación de **Tabs y Stacks** para una experiencia nativa.
 
 ```text
 sintesis-mobile/
 │
 ├── app/                      # Capa de Presentación (Expo Router)
-│   ├── (auth)/               # Pantallas públicas (Login)
-│   ├── (student)/            # Tabs y Stacks del Estudiante
-│   ├── (teacher)/            # Tabs y Stacks del Docente
-│   ├── (trainee)/            # Tabs y Stacks del Practicante
-│   ├── _layout.tsx           # Entry point y Provider global
-│   └── +not-found.tsx        # Fallback 404
+│   ├── (auth)/               # Pantallas públicas (Login, Recuperación de clave)
+│   ├── (student)/            # Tabs de Estudiante (con sub-stacks anidados para OVAS)
+│   ├── (teacher)/            # Tabs de Docente (con sub-stacks anidados para Actividades)
+│   ├── (trainee)/            # Tabs del Practicante
+│   ├── _layout.tsx           # Entry point, Middleware de Auth y control de gestos
+│   └── index.tsx             # Semáforo de Redirección según Rol
 │
-├── src/                      # Lógica de Negocio y Configuración
-│   ├── api/                  # Configuración de Axios e interceptores
-│   ├── models/               # Interfaces TS (Contratos de datos)
-│   ├── store/                # Zustand Stores (AuthStore, etc.)
-│   └── theme/                # Sistema de Diseño (Colores, Tipografía)
+├── src/                      # Capa de Dominio y Lógica de Negocio
+│   ├── api/                  # Axios Interceptors, authApi.ts, academicApi.ts
+│   ├── components/           # UI reutilizable (SearchableSelect, PaginatedList)
+│   ├── hooks/                # Custom Hooks (useColors)
+│   ├── models/               # Interfaces estricta en TypeScript
+│   └── store/                # Memoria persistente Zustand
 │
-└── components/               # Componentes UI reutilizables
+└── assets/                   # Iconos, Fuentes y Splash Screen
+```
+
+---
+
+## 🛡️ Seguridad y Red
+
+SÍNTESIS incorpora protecciones avanzadas en el lado del cliente móvil:
+1. **RBAC por Interceptores (Practicantes):** Todo intento de enviar peticiones de escritura (`POST`, `PUT`, `DELETE`) por parte de un usuario *Trainee* es interceptado y bloqueado localmente por Axios antes de salir del dispositivo, asegurando la integridad académica.
+2. **Refresh Token Queue:** Si el token caduca a mitad de una sesión, el sistema encola las peticiones, solicita un nuevo JWT de fondo sin molestar al usuario y reintenta las solicitudes de manera transparente.
+3. **Visibilidad Segura:** Toggles de contraseñas implementados en todas las vistas de Auth para garantizar correcta escritura de credenciales, y manejo de errores nativos mediante `react-native-toast-message`.
+
+---
+
+## 💻 Instalación y Uso Local
+
+Para ejecutar el proyecto de forma local para pruebas o desarrollo:
+
+1. Clona el repositorio e instala las dependencias:
+   ```bash
+   npm install
+   ```
+2. Crea un archivo `.env` en la raíz copiando la estructura de configuración requerida (Asegúrate de enlazar la API correcta, sea tu `localhost` o la de producción en *Render*).
+3. Inicia el servidor de desarrollo de Expo:
+   ```bash
+   npx expo start -c
+   ```
+4. Escanea el código QR con la app **Expo Go** en tu celular Android/iOS, o presiona `a` para abrir el emulador de Android.
