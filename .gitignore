@@ -46,3 +46,4 @@ app-example
 #contexto universal para agentes de inteligencia artificial
 UNIVERSAL_CONTEXT.md
 update-context.js
+script.py

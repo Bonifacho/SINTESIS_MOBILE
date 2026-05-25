@@ -1,10 +1,12 @@
+import { useThemeStore } from '@/src/store/themeStore';
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
 import { academicApi } from '@/src/api/academic';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { generateAndSharePDF } from '@/src/utils/pdfExport';
 import type { AcademicGroup, AcademicTopic, AcademicOva, ExamAttempt } from '@/src/models/academic';
 
 interface GroupProgress {
@@ -21,6 +23,8 @@ interface GroupProgress {
 const PAGE_SIZE = 5;
 
 export default function StudentProgressScreen() {
+  const isDark = useThemeStore((s) => s.isDark);
+  const styles = makeStyles(isDark);
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
 
@@ -30,6 +34,7 @@ export default function StudentProgressScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attemptPage, setAttemptPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchProgress = async () => {
     if (!user?.id) return;
@@ -63,7 +68,7 @@ export default function StudentProgressScreen() {
             ovasResults.forEach(({ ovas }) => {
               ovas.forEach(ova => {
                 allOvaIds.push(ova.id);
-                if (ova.resources?.length === 0 || ova.title.toLowerCase().includes('evaluación') || ova.title.toLowerCase().includes('test')) {
+                if (ova.has_exam) {
                   totalExams++;
                 }
               });
@@ -129,11 +134,23 @@ export default function StudentProgressScreen() {
     return { total: allAttempts.length, avg, highest, lowest, passed, trend };
   }, [allAttempts]);
 
-  // ── Paginación de historial ────────────────────────────────────────────────
-  const sortedAttempts = useMemo(
-    () => [...allAttempts].sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()),
-    [allAttempts]
-  );
+  // ── Paginación y Filtrado de historial ─────────────────────────────────────
+  const sortedAttempts = useMemo(() => {
+    let filtered = [...allAttempts];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(a => 
+        ((a as any).ova_title || `Examen #${a.exam_id}`).toLowerCase().includes(q)
+      );
+    }
+    return filtered.sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
+  }, [allAttempts, searchQuery]);
+
+  // Si se busca, volver a la página 1
+  useEffect(() => {
+    setAttemptPage(1);
+  }, [searchQuery]);
+
   const totalAttemptPages = Math.max(1, Math.ceil(sortedAttempts.length / PAGE_SIZE));
   const pagedAttempts = sortedAttempts.slice((attemptPage - 1) * PAGE_SIZE, attemptPage * PAGE_SIZE);
 
@@ -167,19 +184,55 @@ export default function StudentProgressScreen() {
       contentContainerStyle={styles.content} 
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <React.Fragment>
-          {/* Workaround for importing RefreshControl without altering the top imports */}
-          {React.createElement(require('react-native').RefreshControl, {
-            refreshing,
-            onRefresh,
-            colors: [Colors.primary],
-          })}
-        </React.Fragment>
+        React.createElement(require('react-native').RefreshControl, {
+          refreshing,
+          onRefresh,
+          colors: [Colors.primary],
+        })
       }
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Mi Rendimiento</Text>
-        <Text style={styles.subtitle}>Métricas de tu avance académico</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Mi Rendimiento</Text>
+            <Text style={styles.subtitle}>Métricas de tu avance académico</Text>
+          </View>
+          {globalMetrics && (
+            <TouchableOpacity
+              style={styles.exportBtn}
+              onPress={async () => {
+                try {
+                  await generateAndSharePDF({
+                    title: `Reporte de Progreso Académico`,
+                    subtitle: 'Resumen personal de evaluaciones',
+                    generatedBy: user?.full_name ?? 'Estudiante',
+                    metrics: [
+                      { label: 'Total Intentos', value: globalMetrics.total },
+                      { label: 'Aprobados', value: globalMetrics.passed, color: Colors.success },
+                      { label: 'Promedio Global', value: `${globalMetrics.avg}%`, color: Colors.primary },
+                      { label: 'Nota Más Alta', value: globalMetrics.highest, color: Colors.success },
+                      { label: 'Nota Más Baja', value: globalMetrics.lowest, color: Colors.error },
+                    ],
+                    attempts: allAttempts.map(a => ({
+                      examId: a.exam_id,
+                      studentName: (a as any).ova_title ?? `Examen #${a.exam_id}`,
+                      score: a.score,
+                      passed: a.passed,
+                      correct: a.correct_answers,
+                      total: a.total_questions,
+                      date: new Date(a.submitted_at).toLocaleDateString('es-CO'),
+                    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+                  });
+                } catch (err) {
+                  Alert.alert('Error', 'No se pudo generar el PDF.');
+                }
+              }}
+            >
+              <Ionicons name="download-outline" size={18} color={Colors.surface} />
+              <Text style={styles.exportBtnText}>PDF</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* ── Resumen Global ─────────────────────────────────────────────────── */}
@@ -231,15 +284,16 @@ export default function StudentProgressScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="analytics" size={24} color={Colors.primary} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.groupName}>{group.name}</Text>
-              <Text style={styles.groupDesc}>Avance del curso</Text>
-            </View>
             <View style={[styles.badge, { backgroundColor: avgScore >= 60 ? Colors.success + '20' : Colors.error + '20' }]}>
               <Text style={[styles.badgeText, { color: avgScore >= 60 ? Colors.success : Colors.error }]}>
                 Prom: {avgScore}%
               </Text>
             </View>
+          </View>
+          
+          <View style={{ marginBottom: 16 }}>
+            <Text style={styles.groupName}>{group.name}</Text>
+            <Text style={styles.groupDesc}>Avance del curso</Text>
           </View>
 
           {/* Mini métricas del grupo */}
@@ -267,11 +321,34 @@ export default function StudentProgressScreen() {
       ))}
 
       {/* ── Historial de Intentos (paginado) ───────────────────────────────── */}
-      {sortedAttempts.length > 0 && (
+      {allAttempts.length > 0 && (
         <View style={styles.historySection}>
           <Text style={styles.sectionTitle}>Historial de Intentos</Text>
 
-          {pagedAttempts.map((item) => {
+          {/* Barra de búsqueda */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color={Colors.gray} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar por nombre de evaluación..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor={Colors.gray}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearIcon}>
+                <Ionicons name="close-circle" size={20} color={Colors.gray} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {pagedAttempts.length === 0 ? (
+            <View style={styles.centeredInline}>
+              <Ionicons name="search-outline" size={32} color={Colors.gray} />
+              <Text style={styles.emptyText}>No se encontraron evaluaciones con ese nombre.</Text>
+            </View>
+          ) : (
+            pagedAttempts.map((item) => {
             const color = item.passed ? Colors.success : Colors.error;
             return (
               <TouchableOpacity 
@@ -279,9 +356,11 @@ export default function StudentProgressScreen() {
                 style={styles.historyCard}
                 onPress={() => router.push(`/(student)/ovas/exam/result/${item.attempt_id}` as any)}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View>
-                    <Text style={styles.historyExam}>Examen #{item.exam_id}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.historyExam} numberOfLines={1}>
+                      {item.ova_title || `Examen #${item.exam_id}`}
+                    </Text>
                     <Text style={styles.historyDate}>
                       {new Date(item.submitted_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </Text>
@@ -299,7 +378,7 @@ export default function StudentProgressScreen() {
                 </View>
               </TouchableOpacity>
             );
-          })}
+          }))}
 
           {/* Controles de paginación */}
           {totalAttemptPages > 1 && (
@@ -331,51 +410,57 @@ export default function StudentProgressScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const makeStyles = (isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: isDark ? '#121212' : Colors.background },
   content: { padding: 24, gap: 16, paddingBottom: 40 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   centeredInline: { alignItems: 'center', gap: 12, paddingVertical: 40 },
-  loadingText: { fontSize: 14, color: Colors.gray },
+  loadingText: { fontSize: 14, color: isDark ? '#AAAAAA' : Colors.gray },
   errorText: { fontSize: 15, color: Colors.error, textAlign: 'center', paddingHorizontal: 24 },
-  emptyText: { color: Colors.gray, marginTop: 8, fontStyle: 'italic' },
+  emptyText: { color: isDark ? '#AAAAAA' : Colors.gray, marginTop: 8, fontStyle: 'italic' },
   retryBtn: { marginTop: 12, backgroundColor: Colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
   retryBtnText: { color: Colors.surface, fontSize: 14, fontWeight: 'bold' },
   header: { marginBottom: 4, paddingTop: 20 },
-  title: { fontSize: 28, fontWeight: '800', color: Colors.dark },
-  subtitle: { fontSize: 15, color: Colors.gray, marginTop: 4 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.dark, marginBottom: 16 },
+  title: { fontSize: 28, fontWeight: '800', color: isDark ? '#FFFFFF' : Colors.dark },
+  subtitle: { fontSize: 15, color: isDark ? '#AAAAAA' : Colors.gray, marginTop: 4 },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, gap: 6 },
+  exportBtnText: { color: Colors.surface, fontSize: 13, fontWeight: '700' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: isDark ? '#FFFFFF' : Colors.dark, marginBottom: 16 },
   // ── Global metrics ──
-  globalCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, elevation: 2, borderWidth: 1, borderColor: Colors.window },
+  globalCard: { backgroundColor: isDark ? '#1E1E1E' : Colors.surface, borderRadius: 16, padding: 20, elevation: 2, borderWidth: 1, borderColor: isDark ? '#2C2C2C' : Colors.window },
   metricsGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   metricItem: { width: '33%', alignItems: 'center', paddingVertical: 10 },
-  metricValue: { fontSize: 22, fontWeight: '800', color: Colors.dark },
-  metricLabel: { fontSize: 11, color: Colors.gray, marginTop: 2, fontWeight: '500' },
+  metricValue: { fontSize: 22, fontWeight: '800', color: isDark ? '#FFFFFF' : Colors.dark },
+  metricLabel: { fontSize: 11, color: isDark ? '#AAAAAA' : Colors.gray, marginTop: 2, fontWeight: '500' },
   // ── Group cards ──
-  card: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, elevation: 2, borderWidth: 1, borderColor: Colors.window },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  iconBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: Colors.primary + '15', justifyContent: 'center', alignItems: 'center' },
-  groupName: { fontSize: 18, fontWeight: '700', color: Colors.dark },
-  groupDesc: { fontSize: 13, color: Colors.gray, marginTop: 2 },
+  card: { backgroundColor: isDark ? '#1E1E1E' : Colors.surface, borderRadius: 16, padding: 20, elevation: 2, borderWidth: 1, borderColor: isDark ? '#2C2C2C' : Colors.window },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  iconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.primary + '15', justifyContent: 'center', alignItems: 'center' },
+  groupName: { fontSize: 20, fontWeight: '800', color: isDark ? '#FFFFFF' : Colors.dark },
+  groupDesc: { fontSize: 13, color: isDark ? '#AAAAAA' : Colors.gray, marginTop: 2 },
   badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   badgeText: { fontWeight: '700', fontSize: 13 },
   miniMetricsRow: { flexDirection: 'row', gap: 16, marginBottom: 16, paddingLeft: 4 },
   miniMetric: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  miniMetricText: { fontSize: 12, fontWeight: '600', color: Colors.gray },
+  miniMetricText: { fontSize: 12, fontWeight: '600', color: isDark ? '#AAAAAA' : Colors.gray },
   progressContainer: { gap: 8 },
   progressLabels: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  progressText: { fontSize: 14, color: Colors.gray, fontWeight: '500' },
+  progressText: { fontSize: 14, color: isDark ? '#AAAAAA' : Colors.gray, fontWeight: '500' },
   progressPercent: { fontSize: 16, fontWeight: '700', color: Colors.primary },
   progressBarBg: { height: 10, backgroundColor: Colors.window, borderRadius: 5, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 5 },
   // ── History ──
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? '#1E1E1E' : Colors.surface, borderWidth: 1, borderColor: isDark ? '#2C2C2C' : Colors.window, borderRadius: 12, paddingHorizontal: 12, marginBottom: 12, height: 44 },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, fontSize: 14, color: isDark ? '#FFFFFF' : Colors.dark, paddingVertical: 8 },
+  clearIcon: { padding: 4 },
   historySection: { marginTop: 8 },
-  historyCard: { backgroundColor: Colors.surface, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: Colors.window },
-  historyExam: { fontSize: 14, fontWeight: '700', color: Colors.dark },
-  historyDate: { fontSize: 11, color: Colors.gray, marginTop: 2 },
-  historyBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  historyScore: { fontSize: 14, fontWeight: '700' },
-  historyDetail: { fontSize: 12, color: Colors.gray, marginTop: 8 },
+  historyCard: { backgroundColor: isDark ? '#1E1E1E' : Colors.surface, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: isDark ? '#2C2C2C' : Colors.window },
+  historyExam: { fontSize: 14, fontWeight: '700', color: isDark ? '#FFFFFF' : Colors.dark },
+  historyDate: { fontSize: 11, color: isDark ? '#AAAAAA' : Colors.gray, marginTop: 2 },
+  historyBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, flexShrink: 0 },
+  historyScore: { fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  historyDetail: { fontSize: 12, color: isDark ? '#AAAAAA' : Colors.gray, marginTop: 8 },
   // ── Pagination ──
   paginationBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 4 },
   pageBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Colors.primary + '10', gap: 4 },

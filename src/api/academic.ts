@@ -96,10 +96,17 @@ export const academicApi = {
 
   // ── Progreso (ya conectado) ───────────────────────────────────────────────
   /** Registrar acceso/progreso de un estudiante a un recurso (tracking silencioso) */
-  trackProgress: (userId: number, ovaId: number, action: string) =>
+  trackProgress: (userId: number, ovaId: number, action: string, details?: { topic_name?: string, resource_name?: string }) =>
     api.post('/api/v1/academic/progress', {
       user_id: userId,
       ova_id: ovaId,
       action,
+      ...details,
     }),
+
+  /** Consultar historial de actividad de un grupo (tracking) */
+  getGroupActivity: (groupId: number) =>
+    api.get<{ data: any[] }>(
+      `/api/v1/academic/groups/${groupId}/activity`
+    ),
 };

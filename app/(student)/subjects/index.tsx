@@ -1,3 +1,4 @@
+import { useThemeStore } from '@/src/store/themeStore';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl,
@@ -10,6 +11,8 @@ import { academicApi } from '@/src/api/academic';
 import type { AcademicGroup } from '@/src/models/academic';
 
 export default function SubjectsScreen() {
+  const isDark = useThemeStore((s) => s.isDark);
+  const styles = makeStyles(isDark);
   const router = useRouter();
   const user   = useAuthStore((s) => s.user);
 
@@ -43,8 +46,7 @@ export default function SubjectsScreen() {
   };
 
   const filteredGroups = groups.filter(g => 
-    g.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (g.description || '').toLowerCase().includes(searchQuery.toLowerCase())
+    g.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (loading) {
@@ -124,7 +126,7 @@ export default function SubjectsScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>{item.name}</Text>
-                <Text style={styles.cardSub}>{item.description}</Text>
+                <Text style={styles.cardSub}>Progreso del grupo</Text>
               </View>
             </View>
             <View style={styles.cardFooter}>
@@ -138,29 +140,29 @@ export default function SubjectsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container:  { flex: 1, backgroundColor: Colors.background },
+const makeStyles = (isDark: boolean) => StyleSheet.create({
+  container:  { flex: 1, backgroundColor: isDark ? '#121212' : Colors.background },
   centered:   { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   errorText:  { fontSize: 15, color: Colors.error, textAlign: 'center', paddingHorizontal: 24 },
   retryBtn:   { marginTop: 12, backgroundColor: Colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
   retryBtnText: { color: Colors.surface, fontSize: 14, fontWeight: 'bold' },
-  header:     { padding: 24, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.window },
-  title:      { fontSize: 24, fontWeight: 'bold', color: Colors.dark, marginBottom: 4 },
-  subtitle:   { fontSize: 14, color: Colors.gray, lineHeight: 20, marginBottom: 16 },
+  header:     { padding: 24, backgroundColor: isDark ? '#1E1E1E' : Colors.surface, borderBottomWidth: 1, borderBottomColor: isDark ? '#2C2C2C' : Colors.window },
+  title:      { fontSize: 24, fontWeight: 'bold', color: isDark ? '#FFFFFF' : Colors.dark, marginBottom: 4 },
+  subtitle:   { fontSize: 14, color: isDark ? '#AAAAAA' : Colors.gray, lineHeight: 20, marginBottom: 16 },
   searchContainer: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background,
-    borderRadius: 12, paddingHorizontal: 12, height: 44, borderWidth: 1, borderColor: Colors.window,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? '#121212' : Colors.background,
+    borderRadius: 12, paddingHorizontal: 12, height: 44, borderWidth: 1, borderColor: isDark ? '#2C2C2C' : Colors.window,
   },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 15, color: Colors.dark },
+  searchInput: { flex: 1, marginLeft: 8, fontSize: 15, color: isDark ? '#FFFFFF' : Colors.dark },
   list:       { padding: 16, gap: 14 },
   empty:      { alignItems: 'center', paddingTop: 60, gap: 12 },
-  emptyText:  { fontSize: 15, color: Colors.gray, fontStyle: 'italic' },
+  emptyText:  { fontSize: 15, color: isDark ? '#AAAAAA' : Colors.gray, fontStyle: 'italic' },
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: isDark ? '#1E1E1E' : Colors.surface,
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: Colors.window,
+    borderColor: isDark ? '#2C2C2C' : Colors.window,
     elevation: 3,
     shadowColor: Colors.dark,
     shadowOffset: { width: 0, height: 2 },
@@ -169,8 +171,8 @@ const styles = StyleSheet.create({
   },
   cardHeader:  { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 },
   iconBox:     { width: 48, height: 48, borderRadius: 12, backgroundColor: Colors.primary + '15', justifyContent: 'center', alignItems: 'center' },
-  cardTitle:   { fontSize: 17, fontWeight: '700', color: Colors.dark },
-  cardSub:     { fontSize: 13, color: Colors.gray, marginTop: 3, lineHeight: 18 },
-  cardFooter:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.window },
+  cardTitle:   { fontSize: 17, fontWeight: '700', color: isDark ? '#FFFFFF' : Colors.dark },
+  cardSub:     { fontSize: 13, color: isDark ? '#AAAAAA' : Colors.gray, marginTop: 3, lineHeight: 18 },
+  cardFooter:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: isDark ? '#2C2C2C' : Colors.window },
   footerText:  { fontSize: 14, fontWeight: '600', color: Colors.secondary },
 });

@@ -4,7 +4,7 @@
 export interface AcademicGroup {
   id: number;
   name: string;
-  description?: string;   // Descripción del grupo (ej. "Fundamentos de química")
+  // Nota: el modelo Group en el backend NO tiene campo description.
   teacher_id: number;
   is_active?: boolean;
 }
@@ -35,6 +35,9 @@ export interface AcademicOva {
   order_index: number;
   is_active: boolean;
   resources: OVAResource[];
+  has_exam?: boolean;
+  exam_id?: number | null;
+  exam_title?: string | null;
 }
 
 // ── Dominio: Exámenes y Preguntas ────────────────────────────────────────────
@@ -71,6 +74,8 @@ export interface QuestionResult {
 export interface ExamAttempt {
   attempt_id: number;
   exam_id: number;
+  ova_id: number | null;      // ID del OVA al que pertenece el examen
+  ova_title: string | null;   // Título del OVA — devuelto por _calculate_result()
   student_id: number;
   score: number;
   passed: boolean;
@@ -78,6 +83,7 @@ export interface ExamAttempt {
   total_questions: number;
   passing_score: number;
   submitted_at: string;
+  status?: 'completed' | 'in_progress';
   /** Retroalimentación pregunta por pregunta (solo en detalle de intento) */
   question_results?: QuestionResult[];
 }
@@ -85,6 +91,7 @@ export interface ExamAttempt {
 // ── Dominio: Matrículas ──────────────────────────────────────────────────────
 export interface EnrolledStudent {
   id: number;
+  student_id: number;
   username: string;
   full_name: string;
 }
