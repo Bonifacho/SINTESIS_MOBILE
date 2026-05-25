@@ -1,53 +1,87 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
-import { useRouter } from 'expo-router';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { academicApi } from '@/src/api/academic';
+import { Ionicons } from '@expo/vector-icons';
+import type { AcademicGroup, ExamAttempt } from '@/src/models/academic';
 
 export default function StudentHome() {
-  const { user, clearAuth } = useAuthStore();
-  const router = useRouter();
+  const { user } = useAuthStore();
 
-  const handleLogout = async () => {
-    await clearAuth();
-    router.replace('/(auth)/login');
-  };
+  const [groups, setGroups] = useState<AcademicGroup[]>([]);
+  const [attempts, setAttempts] = useState<ExamAttempt[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const [groupsRes, attemptsRes] = await Promise.all([
+          academicApi.getUserGroups(user.id),
+          academicApi.getStudentAttempts(user.id),
+        ]);
+        setGroups(groupsRes.data.data);
+        setAttempts(attemptsRes.data.data);
+      } catch (err) {
+        console.error('[StudentHome] Error cargando datos:', err);
+        setError('No se pudieron cargar tus datos académicos.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user?.id]);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>Cargando tu resumen...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="cloud-offline-outline" size={48} color={Colors.error} />
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Tarjeta de Perfil (Material Design 3) */}
       <View style={styles.profileCard}>
         <View style={styles.avatarContainer}>
-          <IconSymbol name="person.crop.circle.fill" size={64} color={Colors.primary} />
+          <Ionicons name="person-circle" size={72} color={Colors.primary} />
         </View>
-        <Text style={styles.userName}>{user?.full_name || 'Estudiante SÍNTESIS'}</Text>
-        <Text style={styles.userEmail}>{user?.email || 'correo@sintesis.edu.co'}</Text>
+        <Text style={styles.userName}>{user?.full_name}</Text>
+        <Text style={styles.userEmail}>@{user?.username} · SÍNTESIS</Text>
         <View style={styles.roleBadge}>
-          <Text style={styles.roleText}>Rol: {user?.role?.toUpperCase()}</Text>
+          <Text style={styles.roleText}>ESTUDIANTE</Text>
         </View>
       </View>
 
-      {/* Tarjeta de Resumen Rápido */}
       <View style={styles.statsCard}>
-        <Text style={styles.sectionTitle}>Resumen Académico</Text>
+        <Text style={styles.sectionTitle}>Mi Resumen Académico</Text>
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>3</Text>
+            <Text style={styles.statNumber}>{groups.length}</Text>
             <Text style={styles.statLabel}>Materias</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>12</Text>
-            <Text style={styles.statLabel}>OVAs Vistos</Text>
+            <Text style={styles.statNumber}>{attempts.length}</Text>
+            <Text style={styles.statLabel}>Exámenes</Text>
           </View>
         </View>
       </View>
-
-      {/* Botón de Cierre de Sesión Profesional */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
-        <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={Colors.surface} />
-        <Text style={styles.logoutText}>Cerrar Sesión Segura</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -55,42 +89,19 @@ export default function StudentHome() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, gap: 20 },
-  profileCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    elevation: 4, // Sombra Material Design
-    shadowColor: Colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: Colors.gray },
+  errorText: { fontSize: 15, color: Colors.error, textAlign: 'center', paddingHorizontal: 24 },
+  profileCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 24, alignItems: 'center', elevation: 4, shadowColor: Colors.dark, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 },
   avatarContainer: { marginBottom: 12 },
-  userName: { fontSize: 22, fontWeight: 'bold', color: Colors.dark, marginBottom: 4 },
+  userName: { fontSize: 22, fontWeight: 'bold', color: Colors.dark, marginBottom: 4, textAlign: 'center' },
   userEmail: { fontSize: 14, color: Colors.gray, marginBottom: 12 },
   roleBadge: { backgroundColor: `${Colors.primary}15`, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  roleText: { color: Colors.primary, fontSize: 12, fontWeight: '700' },
-  statsCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    elevation: 2,
-  },
+  roleText: { color: Colors.primary, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+  statsCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, elevation: 2 },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: Colors.dark, marginBottom: 16 },
   statsRow: { flexDirection: 'row', justifyContent: 'space-around' },
   statBox: { alignItems: 'center' },
-  statNumber: { fontSize: 28, fontWeight: 'bold', color: Colors.primary },
+  statNumber: { fontSize: 32, fontWeight: 'bold', color: Colors.primary },
   statLabel: { fontSize: 13, color: Colors.gray, marginTop: 4 },
-  logoutButton: {
-    backgroundColor: Colors.error,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 10,
-    gap: 8,
-  },
-  logoutText: { color: Colors.surface, fontSize: 16, fontWeight: 'bold' },
 });

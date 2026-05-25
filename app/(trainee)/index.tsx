@@ -1,26 +1,134 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Colors } from '@/src/theme/colors';
+import { useAuthStore } from '@/src/store/authStore';
+import { academicApi } from '@/src/api/academic';
+import { Ionicons } from '@expo/vector-icons';
+import type { AcademicGroup, EnrolledStudent } from '@/src/models/academic';
 
 export default function TraineeGroupsScreen() {
+  const router = useRouter();
+  const { user } = useAuthStore();
+
+  const [groups, setGroups] = useState<AcademicGroup[]>([]);
+  const [studentCounts, setStudentCounts] = useState<Record<number, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await academicApi.getUserGroups(user.id);
+        const fetchedGroups: AcademicGroup[] = res.data.data;
+        setGroups(fetchedGroups);
+
+        // Conteo de estudiantes por grupo (en paralelo, solo lectura)
+        const counts: Record<number, number> = {};
+        await Promise.all(
+          fetchedGroups.map(async (g) => {
+            try {
+              const enrollRes = await academicApi.getGroupEnrollments(g.id);
+              counts[g.id] = (enrollRes.data.data as EnrolledStudent[]).length;
+            } catch {
+              counts[g.id] = 0;
+            }
+          })
+        );
+        setStudentCounts(counts);
+      } catch (err) {
+        console.error('[TraineeHome] Error cargando grupos:', err);
+        setError('No se pudieron cargar tus grupos.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user?.id]);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.info} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="cloud-offline-outline" size={48} color={Colors.error} />
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Grupos Asignados</Text>
-        <Text style={styles.subtitle}>Modo auditoría: Solo lectura.</Text>
+        <Text style={styles.title}>Mis Grupos Asignados</Text>
+        <Text style={styles.subtitle}>Selecciona un grupo para observar su progreso.</Text>
+        {/* Rúbrica §6: Badge visual de solo lectura */}
+        <View style={styles.readOnlyBadge}>
+          <Ionicons name="eye-outline" size={14} color={Colors.info} />
+          <Text style={styles.readOnlyText}>Modo Solo Lectura</Text>
+        </View>
       </View>
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Cargando grupos observados...</Text>
-      </View>
+      
+      <FlatList
+        data={groups}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={{ padding: 16, gap: 16 }}
+        ListEmptyComponent={() => (
+          <View style={styles.centered}>
+            <Ionicons name="folder-open-outline" size={48} color={Colors.gray} />
+            <Text style={styles.emptyText}>No tienes grupos asignados.</Text>
+          </View>
+        )}
+        renderItem={({ item }) => {
+          const studentCount = studentCounts[item.id] ?? 0;
+          return (
+            <TouchableOpacity 
+              style={styles.card} 
+              activeOpacity={0.8}
+              onPress={() => router.push({ pathname: '/(trainee)/students', params: { preselectedGroup: item.id } })}
+            >
+              <View style={styles.cardHeader}>
+                <Ionicons name="eye" size={24} color={Colors.info} />
+                <Text style={styles.cardTitle}>{item.name}</Text>
+              </View>
+              <Text style={styles.cardDesc}>{item.description}</Text>
+              <View style={styles.cardFooter}>
+                <Text style={styles.studentCount}>{studentCount} Estudiantes en observación</Text>
+                <Ionicons name="chevron-forward" size={20} color={Colors.gray} />
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  errorText: { fontSize: 15, color: Colors.error, textAlign: 'center', paddingHorizontal: 24 },
+  emptyText: { fontSize: 15, color: Colors.gray, fontStyle: 'italic' },
   header: { padding: 24, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.window },
   title: { fontSize: 24, fontWeight: 'bold', color: Colors.dark, marginBottom: 4 },
   subtitle: { fontSize: 14, color: Colors.gray },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { fontSize: 16, color: Colors.gray, fontStyle: 'italic' },
+  readOnlyBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, backgroundColor: Colors.info + '15', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' },
+  readOnlyText: { fontSize: 12, fontWeight: '700', color: Colors.info, letterSpacing: 0.3 },
+  card: { backgroundColor: Colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: Colors.info, elevation: 2 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 10 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.dark },
+  cardDesc: { fontSize: 14, color: Colors.gray, marginBottom: 16, lineHeight: 20 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: Colors.window, paddingTop: 12 },
+  studentCount: { fontSize: 13, fontWeight: '600', color: Colors.info }
 });

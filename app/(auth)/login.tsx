@@ -1,52 +1,106 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuthStore } from '@/src/store/authStore';
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import Toast from 'react-native-toast-message';
+import { Ionicons } from '@expo/vector-icons';
 import { authApi } from '@/src/api/auth';
 import { Colors } from '@/src/theme/colors';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuthStore } from '@/src/store/authStore';
+
+const loginSchema = z.object({
+  username: z
+    .string({ error: 'Usuario requerido.' })
+    .trim()
+    .min(3, 'El usuario debe tener al menos 3 caracteres.')
+    .max(50, 'El usuario no puede superar 50 caracteres.'),
+  password: z
+    .string({ error: 'Contraseña requerida.' })
+    .min(4, 'La contraseña debe tener al menos 4 caracteres.')
+    .max(128, 'La contraseña no puede superar 128 caracteres.'),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginScreen() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const [username, setUsername]   = useState('');
-  const [password, setPassword]   = useState('');
-  const [loading, setLoading]     = useState(false);
-  const [showPass, setShowPass]   = useState(false);
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isValid },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: '',
+      password: '',
+    },
+    mode: 'onChange',
+  });
 
-  const handleLogin = async () => {
-    if (!username.trim() || !password.trim()) {
-      Alert.alert('Campos requeridos', 'Ingresa tu usuario y contraseña.');
-      return;
-    }
-
-    setLoading(true);
+  const onSubmit = async (values: LoginFormValues) => {
+    setSubmitLoading(true);
     try {
-      const { access_token, user } = await authApi.login({
-        username: username.trim(),
-        password,
+      const response = await authApi.login({
+        username: values.username.trim(),
+        password: values.password,
       });
 
-      await setAuth(user, access_token);
+      // Guard RBAC: Los administradores no tienen acceso a la app móvil
+      const userRole = response.user.role as string;
+      if (userRole === 'administrador' || userRole === 'admin') {
+        Toast.show({
+          type: 'error',
+          text1: 'Acceso restringido',
+          text2: 'Los administradores deben acceder desde la web.',
+          position: 'bottom',
+        });
+        return;
+      }
 
-      // Redirigir según rol
-      const routes: Record<string, string> = {
-        docente:      '/(teacher)',
-        estudiante:   '/(student)',
-        practicante:  '/(trainee)',
-      };
-      router.replace((routes[user.role] ?? '/(student)') as any);
+      // Hidrata el store con los datos de sesión (persist middleware escribe en SecureStore)
+      setAuth(response.user, response.access_token, response.refresh_token);
 
+      if (response.user.role === 'docente') {
+        router.replace('/(teacher)');
+      } else if (response.user.role === 'practicante') {
+        router.replace('/(trainee)');
+      } else {
+        router.replace('/(student)');
+      }
     } catch (error: any) {
-      const msg = error?.response?.data?.error ?? 'Error al iniciar sesión.';
-      Alert.alert('Error de autenticación', msg);
+      if (error?.response?.status === 401) {
+        Toast.show({
+          type: 'error',
+          text1: 'Acceso denegado',
+          text2: 'Usuario o contraseña incorrectos.',
+          position: 'bottom',
+        });
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Error de conexión',
+          text2: 'No se pudo conectar con el servidor.',
+          position: 'bottom',
+        });
+      }
     } finally {
-      setLoading(false);
+      setSubmitLoading(false);
     }
   };
 
@@ -54,74 +108,105 @@ export default function LoginScreen() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
     >
-      <View style={styles.card}>
+      <ScrollView
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.card}>
+          <Text style={styles.title}>SÍNTESIS</Text>
 
-        {/* Logo */}
-        <View style={styles.logoBox}>
-          <IconSymbol name="lock.shield.fill" size={56} color={Colors.primary} />
-          <Text style={styles.appName}>SÍNTESIS</Text>
-          <Text style={styles.appSub}>Portal Académico</Text>
-        </View>
-
-        {/* Usuario */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Usuario</Text>
-          <View style={styles.inputRow}>
-            <IconSymbol name="person.fill" size={18} color={Colors.gray} />
-            <TextInput
-              style={styles.input}
-              placeholder="Tu nombre de usuario"
-              placeholderTextColor={Colors.gray}
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
+          <View style={styles.field}>
+            <Text style={styles.label}>Usuario</Text>
+            <Controller
+              control={control}
+              name="username"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.username ? styles.inputError : null]}
+                  placeholder="Ingresa tu usuario"
+                  placeholderTextColor={Colors.gray}
+                  value={value}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!submitLoading}
+                />
+              )}
             />
+            {errors.username ? <Text style={styles.errorText}>{errors.username.message}</Text> : null}
           </View>
-        </View>
 
-        {/* Contraseña */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Contraseña</Text>
-          <View style={styles.inputRow}>
-            <IconSymbol name="lock.fill" size={18} color={Colors.gray} />
-            <TextInput
-              style={styles.input}
-              placeholder="Tu contraseña"
-              placeholderTextColor={Colors.gray}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPass}
-              editable={!loading}
+          <View style={styles.field}>
+            <Text style={styles.label}>Contraseña</Text>
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <View style={{ justifyContent: 'center' }}>
+                  <TextInput
+                    style={[styles.input, errors.password ? styles.inputError : null, { paddingRight: 48 }]}
+                    placeholder="Ingresa tu contraseña"
+                    placeholderTextColor={Colors.gray}
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!submitLoading}
+                  />
+                  <TouchableOpacity
+                    style={{ position: 'absolute', right: 16, height: '100%', justifyContent: 'center' }}
+                    onPress={() => setShowPassword(!showPassword)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={Colors.gray} />
+                  </TouchableOpacity>
+                </View>
+              )}
             />
-            <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-              <IconSymbol
-                name={showPass ? 'eye.slash.fill' : 'eye.fill'}
-                size={18}
-                color={Colors.gray}
-              />
-            </TouchableOpacity>
+            {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
           </View>
+
+          <TouchableOpacity
+            style={styles.linkButton}
+            onPress={() => router.push('/(auth)/forgot-password' as never)}
+            disabled={submitLoading}
+          >
+            <Text style={styles.linkText}>¿Olvidaste tu contraseña?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.primaryButton, !isValid || submitLoading ? styles.primaryButtonDisabled : null]}
+            onPress={handleSubmit(onSubmit)}
+            disabled={!isValid || submitLoading}
+          >
+            <Text style={styles.primaryButtonText}>
+              {submitLoading ? 'Ingresando...' : 'Ingresar'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Divider visual estándar de la industria */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>o</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* CTA secundario — botón outlined (Gutenberg Diagram compliant) */}
+          <TouchableOpacity
+            style={styles.registerButton}
+            onPress={() => router.push('/(auth)/register' as never)}
+            disabled={submitLoading}
+          >
+            <Text style={styles.registerButtonText}>Crear una cuenta</Text>
+          </TouchableOpacity>
         </View>
-
-        {/* Botón */}
-        <TouchableOpacity
-          style={[styles.btn, loading && styles.btnDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.btnText}>Ingresar</Text>
-          }
-        </TouchableOpacity>
-
-        <Text style={styles.footer}>
-          Escuela Normal Superior María Auxiliadora · Girardot
-        </Text>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -129,74 +214,107 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.background,
+  },
+  contentContainer: {
+    flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: 20,
+    paddingBottom: 28,
   },
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 28,
+    borderRadius: 28,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: Colors.window,
   },
-  logoBox: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  appName: {
+  title: {
     fontSize: 28,
     fontWeight: '800',
     color: Colors.primary,
-    marginTop: 10,
-    letterSpacing: 2,
+    textAlign: 'center',
+    marginBottom: 18,
   },
-  appSub: {
-    fontSize: 13,
-    color: Colors.gray,
-    marginTop: 4,
+  field: {
+    marginBottom: 14,
   },
-  field: { marginBottom: 16 },
   label: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.gray,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: Colors.dark,
+    fontSize: 14,
+    fontWeight: '600',
     marginBottom: 8,
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    borderRadius: 12,
+  input: {
+    height: 54,
+    borderRadius: 27,
     borderWidth: 1,
     borderColor: Colors.window,
-    paddingHorizontal: 14,
-    height: 52,
-    gap: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 18,
     color: Colors.dark,
+    fontSize: 15,
   },
-  btn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    height: 52,
-    justifyContent: 'center',
+  inputError: {
+    borderColor: Colors.error,
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: 12,
+    marginTop: 6,
+  },
+  linkButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 16,
+  },
+  linkText: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  primaryButton: {
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: Colors.secondary,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
   },
-  btnDisabled: { opacity: 0.6 },
-  btnText: {
-    color: '#fff',
+  primaryButtonDisabled: {
+    opacity: 0.6,
+  },
+  primaryButtonText: {
+    color: Colors.dark,
     fontSize: 16,
     fontWeight: '700',
   },
-  footer: {
-    textAlign: 'center',
-    fontSize: 11,
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 18,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.window,
+  },
+  dividerText: {
+    paddingHorizontal: 14,
     color: Colors.gray,
-    marginTop: 20,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  registerButton: {
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  registerButtonText: {
+    color: Colors.primary,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

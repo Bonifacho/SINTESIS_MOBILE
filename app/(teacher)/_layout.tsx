@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Colors } from '@/src/theme/colors';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TeacherLayout() {
   return (
@@ -15,16 +15,10 @@ export default function TeacherLayout() {
         headerTitleStyle: { fontWeight: 'bold' },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Mis Grupos', tabBarIcon: ({ color, size }) => <IconSymbol name="person.3.fill" size={size} color={color} /> }} />
-      <Tabs.Screen
-        name="students/index"
-        options={{
-          title: 'Estudiantes',
-          tabBarIcon: ({ color, size }) =>
-            <IconSymbol name="person.2.fill" size={size} color={color} />,
-        }} />
-      <Tabs.Screen name="results/index" options={{ title: 'Resultados', tabBarIcon: ({ color, size }) => <IconSymbol name="chart.bar.fill" size={size} color={color} /> }} />
-      <Tabs.Screen name="profile/index" options={{ title: 'Perfil', tabBarIcon: ({ color, size }) => <IconSymbol name="person.crop.circle.fill" size={size} color={color} /> }} />
+      <Tabs.Screen name="index" options={{ title: 'Mis Grupos', tabBarIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} /> }} />
+      <Tabs.Screen name="students/index" options={{ title: 'Estudiantes', tabBarIcon: ({ color, size }) => <Ionicons name="search" size={size} color={color} /> }} />
+      <Tabs.Screen name="results/index" options={{ title: 'Resultados', tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart" size={size} color={color} /> }} />
+      <Tabs.Screen name="profile/index" options={{ title: 'Perfil', tabBarIcon: ({ color, size }) => <Ionicons name="person-circle" size={size} color={color} /> }} />
     </Tabs>
   );
 }
