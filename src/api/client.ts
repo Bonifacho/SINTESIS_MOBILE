@@ -11,23 +11,56 @@ const api = axios.create({
   timeout: 30000, // Aumentado a 30s para evitar fallos por "cold start" en servidores gratuitos como Railway
 });
 
-// ── Interceptor de Logs Visuales para Capturas de Pantalla ─────────────────
+// ── Helper para sanitizar datos sensibles en logs (MOV-01) ─────────────────
+const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
+
+const sanitizePayload = (data: any): any => {
+  if (!data || typeof data !== 'object') return data;
+  try {
+    const copy = Array.isArray(data) ? [...data] : { ...data };
+    const sensitiveKeys = [
+      'password',
+      'new_password',
+      'current_password',
+      'token',
+      'dev_token',
+      'access_token',
+      'refresh_token',
+    ];
+
+    for (const key of Object.keys(copy)) {
+      if (sensitiveKeys.includes(key.toLowerCase())) {
+        copy[key] = '********';
+      } else if (typeof copy[key] === 'object' && copy[key] !== null) {
+        copy[key] = sanitizePayload(copy[key]);
+      }
+    }
+    return copy;
+  } catch {
+    return '[Payload protegido]';
+  }
+};
+
+// ── Interceptor de Logs Visuales para Capturas de Pantalla (Sanitizado) ────
 api.interceptors.request.use((config) => {
-  console.log(`\n📤 [ENVIANDO] ${config.method?.toUpperCase()} ${config.url}`);
-  if (config.data) {
-    console.log('📦 Payload:', JSON.stringify(config.data, null, 2));
+  if (isDev) {
+    console.log(`\n📤 [ENVIANDO] ${config.method?.toUpperCase()} ${config.url}`);
+    if (config.data) {
+      console.log('📦 Payload:', JSON.stringify(sanitizePayload(config.data), null, 2));
+    }
   }
   return config;
 });
 
 api.interceptors.response.use((response) => {
-  console.log(`\n📥 [RECIBIDO] ${response.config.method?.toUpperCase()} ${response.config.url} - Status: ${response.status}`);
-  if (response.data) {
-    // Si es el login, mostramos el JSON para la captura del token
-    if (response.config.url?.includes('login')) {
-      console.log('✅ Response Data:', JSON.stringify(response.data, null, 2));
-    } else {
-      console.log('✅ Response Data: [Datos recibidos correctamente]');
+  if (isDev) {
+    console.log(`\n📥 [RECIBIDO] ${response.config.method?.toUpperCase()} ${response.config.url} - Status: ${response.status}`);
+    if (response.data) {
+      if (response.config.url?.includes('login')) {
+        console.log('✅ Response Data:', JSON.stringify(sanitizePayload(response.data), null, 2));
+      } else {
+        console.log('✅ Response Data: [Datos recibidos correctamente]');
+      }
     }
   }
   return response;
