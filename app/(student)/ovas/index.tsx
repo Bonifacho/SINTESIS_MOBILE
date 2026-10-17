@@ -60,6 +60,20 @@ export default function OvasListScreen() {
       ).catch((err) => console.error('[Tracking] Error:', err));
     }
 
+    // Soporte de recursos de texto enriquecido (MOV-06)
+    if (resource.resource_type === 'text' || (!resource.url && resource.content)) {
+      router.push({
+        pathname: '/(student)/ovas/text/[id]' as any,
+        params: {
+          id: ova.id,
+          title: resource.display_title,
+          content: resource.content || '',
+          topicTitle: topicTitle,
+        },
+      });
+      return;
+    }
+
     if (resource.url) {
       router.push({
         pathname: '/(student)/ovas/video/[id]' as any,
@@ -139,14 +153,30 @@ export default function OvasListScreen() {
                     >
                       <View style={styles.iconBox}>
                         <Ionicons 
-                          name={res.resource_type === 'video' ? 'play-circle' : 'document'} 
+                          name={
+                            res.resource_type === 'video'
+                              ? 'play-circle'
+                              : res.resource_type === 'text'
+                                ? 'reader-outline'
+                                : res.resource_type === 'pdf'
+                                  ? 'document-text-outline'
+                                  : 'document-outline'
+                          } 
                           size={20} 
                           color={Colors.primary} 
                         />
                       </View>
                       <View style={styles.ovaInfo}>
                         <Text style={styles.ovaTitle}>{res.display_title}</Text>
-                        <Text style={styles.ovaType}>Recurso interactivo</Text>
+                        <Text style={styles.ovaType}>
+                          {res.resource_type === 'video'
+                            ? 'Video interactivo'
+                            : res.resource_type === 'text'
+                              ? 'Lectura interactiva'
+                              : res.resource_type === 'pdf'
+                                ? 'Documento PDF'
+                                : 'Recurso de estudio'}
+                        </Text>
                       </View>
                       <Ionicons name="chevron-forward" size={18} color={Colors.gray} />
                     </TouchableOpacity>

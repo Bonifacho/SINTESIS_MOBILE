@@ -47,5 +47,5 @@ app-example
 UNIVERSAL_CONTEXT.md
 update-context.js
 script.py
-scripts/test_*.js
-scripts/test_*.ts
+scripts/*.js
+scripts/*.ts

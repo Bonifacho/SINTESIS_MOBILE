@@ -12,6 +12,7 @@ export default function ForgotPasswordScreen() {
   const [identifier, setIdentifier] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [devToken, setDevToken] = useState('');
+  const [manualToken, setManualToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -28,7 +29,9 @@ export default function ForgotPasswordScreen() {
         setStep(2);
         Toast.show({ type: 'success', text1: 'Usuario encontrado', text2: 'Por favor, ingresa tu nueva contraseña.', position: 'bottom' });
       } else {
-        Toast.show({ type: 'error', text1: 'Error', text2: 'No se recibió un token válido.', position: 'bottom' });
+        setDevToken('');
+        setStep(2);
+        Toast.show({ type: 'info', text1: 'Instrucciones enviadas', text2: res.data?.message || 'Ingresa el token recibido y tu nueva contraseña.', position: 'bottom' });
       }
     } catch (error: any) {
       Toast.show({ type: 'error', text1: 'Error', text2: error?.response?.data?.message || 'No se pudo verificar el usuario.', position: 'bottom' });
@@ -38,6 +41,11 @@ export default function ForgotPasswordScreen() {
   };
 
   const confirmReset = async () => {
+    const tokenToUse = devToken || manualToken.trim();
+    if (!tokenToUse) {
+      Toast.show({ type: 'error', text1: 'Token requerido', text2: 'Por favor, ingresa el token de recuperación recibido.', position: 'bottom' });
+      return;
+    }
     if (newPassword.length < 6) {
       Toast.show({ type: 'error', text1: 'Contraseña débil', text2: 'La nueva contraseña debe tener al menos 6 caracteres.', position: 'bottom' });
       return;
@@ -45,7 +53,7 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     try {
       await apiClient.post('/api/v1/security/reset-password', {
-        token: devToken,
+        token: tokenToUse,
         new_password: newPassword,
       });
       Toast.show({ type: 'success', text1: '¡Éxito!', text2: 'Tu contraseña ha sido actualizada correctamente.', position: 'bottom' });
@@ -82,6 +90,22 @@ export default function ForgotPasswordScreen() {
           </>
         ) : (
           <>
+            {!devToken && (
+              <>
+                <Text style={styles.label}>Token de Recuperación</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Pega el token recibido por correo"
+                  placeholderTextColor={Colors.gray}
+                  value={manualToken}
+                  onChangeText={setManualToken}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!loading}
+                />
+              </>
+            )}
+
             <Text style={styles.label}>Nueva Contraseña</Text>
             <View style={{ justifyContent: 'center' }}>
               <TextInput
