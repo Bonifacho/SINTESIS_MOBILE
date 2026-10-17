@@ -151,12 +151,14 @@ api.interceptors.response.use(
       );
     }
 
-    // ── 403 Forbidden (Rúbrica §5) ──────────────────────────────────────
-    // Limpiar authStore + redirigir a Login para prevenir accesos residuales.
-    // La redirección ocurre reactivamente: _layout.tsx detecta token=null y redirige.
+    // ── 403 Forbidden (MOV-02 / Resiliencia de Sesión) ──────────────────
+    // Acceso denegado a recurso específico. NO destruir sesión ni forzar logout,
+    // ya que el usuario sigue autenticado. Se delega el manejo a la vista.
     if (status === 403) {
-      console.error('[API] 403 Forbidden — limpiando sesión. Acceso denegado.');
-      useAuthStore.getState().clearAuth();
+      console.warn(
+        '[API] 403 Forbidden: Acceso denegado al recurso solicitado:',
+        originalRequest?.url
+      );
       return Promise.reject(error);
     }
 
