@@ -171,7 +171,6 @@ export default function VideoPlayerScreen() {
             ref={videoRef}
             style={{ width: '100%', height: '100%' }}
             player={player}
-            allowsFullscreen
             allowsPictureInPicture
           />
         </View>
@@ -435,9 +434,9 @@ const makeStyles = (isDark: boolean) => StyleSheet.create({
   headerBack:             { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerBackText:         { color: isDark ? '#FFFFFF' : Colors.dark, fontSize: 16, fontWeight: '600' },
   // Overlays
-  loadingOverlay:         { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 10 },
+  loadingOverlay:         { ...StyleSheet.absoluteFill, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 10 },
   loadingText:            { color: '#aaa', marginTop: 8, fontSize: 14 },
-  errorOverlay:           { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 10, gap: 12, paddingHorizontal: 30 },
+  errorOverlay:           { ...StyleSheet.absoluteFill, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 10, gap: 12, paddingHorizontal: 30 },
   errorOverlayText:       { color: '#aaa', fontSize: 14, textAlign: 'center' },
   retryBtn:               { backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
   retryBtnText:           { color: '#fff', fontWeight: '700' },
