@@ -1,10 +1,23 @@
 // app/(student)/_layout.tsx
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/src/hooks/useColors';
+import { useAuthStore } from '@/src/store/authStore';
 
 export default function StudentLayout() {
+  const { user, token } = useAuthStore();
   const C = useColors();
+
+  if (!token || !user) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  if (user.role !== 'estudiante') {
+    if (user.role === 'docente') return <Redirect href="/(teacher)" />;
+    if (user.role === 'practicante') return <Redirect href="/(trainee)" />;
+    return <Redirect href="/(auth)/login" />;
+  }
+
   return (
     <Tabs
       backBehavior="history"

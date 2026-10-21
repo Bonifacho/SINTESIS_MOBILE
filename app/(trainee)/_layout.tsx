@@ -1,10 +1,23 @@
 // app/(trainee)/_layout.tsx
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/src/hooks/useColors';
+import { useAuthStore } from '@/src/store/authStore';
 
 export default function TraineeLayout() {
+  const { user, token } = useAuthStore();
   const C = useColors();
+
+  if (!token || !user) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  if (user.role !== 'practicante') {
+    if (user.role === 'docente') return <Redirect href="/(teacher)" />;
+    if (user.role === 'estudiante') return <Redirect href="/(student)" />;
+    return <Redirect href="/(auth)/login" />;
+  }
+
   return (
     <Tabs
       backBehavior="history"

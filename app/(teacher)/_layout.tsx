@@ -1,12 +1,25 @@
 // app/(teacher)/_layout.tsx
 // 4 tabs del docente. La vista "Actividad" es accesible desde el botón
 // en la pestaña Resultados (como stack encima), NO como tab propio.
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/src/hooks/useColors';
+import { useAuthStore } from '@/src/store/authStore';
 
 export default function TeacherLayout() {
+  const { user, token } = useAuthStore();
   const C = useColors();
+
+  if (!token || !user) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  if (user.role !== 'docente') {
+    if (user.role === 'practicante') return <Redirect href="/(trainee)" />;
+    if (user.role === 'estudiante') return <Redirect href="/(student)" />;
+    return <Redirect href="/(auth)/login" />;
+  }
+
   return (
     <Tabs
       backBehavior="history"
