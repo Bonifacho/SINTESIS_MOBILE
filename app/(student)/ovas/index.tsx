@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/src/theme/colors';
 import { useAuthStore } from '@/src/store/authStore';
 import { academicApi } from '@/src/api/academic';
+import { goBackOrTo } from '@/src/utils/navigation';
 import type { AcademicTopic, AcademicOva } from '@/src/models/academic';
 
 export default function OvasListScreen() {
@@ -111,7 +112,7 @@ export default function OvasListScreen() {
       <View style={styles.centered}>
         <Ionicons name="cloud-offline-outline" size={48} color={Colors.error} />
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => router.push('/(student)/subjects')}>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => goBackOrTo(router, '/(student)/subjects')}>
           <Text style={styles.retryText}>Volver a Materias</Text>
         </TouchableOpacity>
       </View>
@@ -121,7 +122,7 @@ export default function OvasListScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/(student)/subjects')}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => goBackOrTo(router, '/(student)/subjects')}>
           <Ionicons name="chevron-back" size={24} color={Colors.primary} />
           <Text style={styles.backText}>Materias</Text>
         </TouchableOpacity>

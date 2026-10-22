@@ -19,6 +19,7 @@ import { Colors } from '@/src/theme/colors';
 import { useThemeStore } from '@/src/store/themeStore';
 import { useAuthStore } from '@/src/store/authStore';
 import { academicApi } from '@/src/api/academic';
+import { goBackOrTo } from '@/src/utils/navigation';
 
 export default function TextResourceViewer() {
   const router = useRouter();
@@ -131,7 +132,7 @@ export default function TextResourceViewer() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => goBackOrTo(router, '/(student)/subjects')}
           activeOpacity={0.7}
         >
           <Ionicons name="chevron-back" size={24} color={isDark ? '#FFF' : Colors.primary} />

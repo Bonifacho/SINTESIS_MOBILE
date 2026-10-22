@@ -18,6 +18,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { WebView } from 'react-native-webview';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import YoutubePlayer from 'react-native-youtube-iframe';
+import { goBackOrTo } from '@/src/utils/navigation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const VIDEO_HEIGHT = (SCREEN_WIDTH * 9) / 16;
@@ -143,7 +144,7 @@ export default function VideoPlayerScreen() {
 
         {!isLandscape && (
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => { if (router.canGoBack()) { router.back(); } else { router.push('/(student)/subjects'); } }} style={styles.headerBack}>
+            <TouchableOpacity onPress={() => goBackOrTo(router, '/(student)/subjects')} style={styles.headerBack}>
               <Ionicons name="chevron-back" size={24} color={isDark ? '#FFFFFF' : Colors.dark} />
               <Text style={styles.headerBackText}>Volver</Text>
             </TouchableOpacity>
@@ -204,7 +205,7 @@ export default function VideoPlayerScreen() {
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={isDark ? '#121212' : '#FFFFFF'} hidden={isLandscape} />
         {!isLandscape && (
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => { if (router.canGoBack()) { router.back(); } else { router.push('/(student)/subjects'); } }} style={styles.headerBack}>
+            <TouchableOpacity onPress={() => goBackOrTo(router, '/(student)/subjects')} style={styles.headerBack}>
               <Ionicons name="chevron-back" size={24} color={isDark ? '#FFFFFF' : Colors.dark} />
               <Text style={styles.headerBackText}>Volver</Text>
             </TouchableOpacity>
@@ -278,7 +279,7 @@ export default function VideoPlayerScreen() {
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={isDark ? '#121212' : '#FFFFFF'} hidden={isLandscape} />
         {!isLandscape && (
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => { if (router.canGoBack()) { router.back(); } else { router.push('/(student)/subjects'); } }} style={styles.headerBack}>
+            <TouchableOpacity onPress={() => goBackOrTo(router, '/(student)/subjects')} style={styles.headerBack}>
               <Ionicons name="chevron-back" size={24} color={isDark ? '#FFFFFF' : Colors.dark} />
               <Text style={styles.headerBackText}>Volver</Text>
             </TouchableOpacity>
@@ -353,7 +354,7 @@ export default function VideoPlayerScreen() {
       
       {!isLandscape && (
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => { if (router.canGoBack()) { router.back(); } else { router.push('/(student)/subjects'); } }} style={styles.headerBack}>
+          <TouchableOpacity onPress={() => goBackOrTo(router, '/(student)/subjects')} style={styles.headerBack}>
             <Ionicons name="chevron-back" size={24} color={isDark ? '#FFFFFF' : Colors.dark} />
             <Text style={styles.headerBackText}>Volver</Text>
           </TouchableOpacity>
